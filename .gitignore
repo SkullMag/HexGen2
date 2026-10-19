@@ -12,10 +12,10 @@ __pycache__/
 ._*
 
 # Downloaded dependencies, model weights, and generated runs
-flash-attention/
-models/
-checkpoints/
-separate_state_dicts/
-artifacts/
-runs/*
-!runs/README.md
+/flash-attention/
+/models/
+/checkpoints/
+/separate_state_dicts/
+/artifacts/
+/runs/*
+!/runs/README.md
