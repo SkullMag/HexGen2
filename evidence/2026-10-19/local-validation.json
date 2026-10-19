@@ -1,0 +1,199 @@
+{
+  "scope": "Local CPU correctness and modeled scheduler only; no FABRIC GPU claim",
+  "test_suite": {
+    "passed": 7,
+    "command": ".venv/bin/python -m unittest discover -s tests -v",
+    "cases": [
+      "FP32/FP16/BF16 native RMSNorm vs HF",
+      "real multiprocess FP16/BF16/FP32 lossless cache transfer",
+      "metadata validation",
+      "real two-rank CPU reference and colocated token equality",
+      "failure retention and tamper detection",
+      "timeout process-group cleanup",
+      "interrupt process-group cleanup"
+    ]
+  },
+  "cpu_pilot": {
+    "kind": "serial-correctness-pilot",
+    "integrity": "passed",
+    "node_statuses": {
+      "local": "success"
+    },
+    "classifications": [
+      "cpu-reference"
+    ],
+    "complete": true,
+    "offered": 3,
+    "started": 3,
+    "successful": 3,
+    "unsuccessful_or_incomplete": 0,
+    "warmup_records": 1,
+    "correctness_failures": 0,
+    "failures": [],
+    "roundtrip_ms": {
+      "median": 3.276584,
+      "max": 9.506291
+    },
+    "client_ttft": null,
+    "serving_throughput": null,
+    "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim"
+  },
+  "scheduler": {
+    "same_seed_result_identical": true,
+    "seed": 123,
+    "classification": "modeled",
+    "result": {
+      "num_clusters": 4,
+      "optimized_clusters": {
+        "0": [
+          1,
+          6
+        ],
+        "1": [
+          0,
+          8,
+          10,
+          11,
+          17
+        ],
+        "2": [
+          2,
+          3,
+          4,
+          5,
+          7,
+          14
+        ],
+        "3": [
+          9,
+          12,
+          13,
+          15,
+          16,
+          18,
+          19
+        ]
+      },
+      "clusters_comm_matrix": [
+        [
+          66.66666666666667,
+          66.66666666666667
+        ],
+        [
+          66.66666666666667,
+          66.66666666666667
+        ]
+      ],
+      "clusters_split": {
+        "decode_clusters": [
+          3,
+          2
+        ],
+        "prefill_clusters": [
+          0,
+          1
+        ],
+        "prefill_strategy": [
+          [
+            [
+              1
+            ],
+            [
+              6,
+              9
+            ]
+          ],
+          [
+            [
+              0
+            ],
+            [
+              8,
+              10
+            ],
+            [
+              11
+            ],
+            [
+              17
+            ]
+          ]
+        ],
+        "prefill_cost": [
+          0.394110004897472,
+          0.6612933878376409
+        ],
+        "decode_cost": [
+          7.789948457545778,
+          6.115091424407836
+        ],
+        "decode_strategy": [
+          [
+            [
+              2,
+              3,
+              4,
+              5
+            ],
+            [
+              7
+            ],
+            [
+              14
+            ]
+          ],
+          [
+            [
+              12,
+              13,
+              15,
+              16
+            ],
+            [
+              18,
+              19
+            ]
+          ]
+        ],
+        "prefill_layer_partition": [
+          [
+            26,
+            54
+          ],
+          [
+            17,
+            35,
+            18,
+            10
+          ]
+        ],
+        "decode_layer_partition": [
+          [
+            48,
+            20,
+            12
+          ],
+          [
+            54,
+            26
+          ]
+        ]
+      },
+      "flow_value": 1.0554,
+      "throughput": 437.778
+    },
+    "units_note": "Original artifact formulas; not measured serving throughput"
+  },
+  "recording_limits": {
+    "cpu_gpu_probes": "Unavailable by design on the local CPU host",
+    "scheduler_process_probes": "Access denied by local sandbox; explicitly recorded in each sample",
+    "prior_attempt": "scheduler-20261019-a exposed an unguarded sampler error; retained locally; corrected before attempt b"
+  },
+  "live_validation": {
+    "fabric_authentication": "verified",
+    "active_owned_slices": 0,
+    "candidate": "CERN cern-w3 / cern-w6, one A30 per host, 8 vCPU / 64 GiB / 100 GB per VM",
+    "native_cuda": "pending",
+    "cross_node": "pending"
+  }
+}

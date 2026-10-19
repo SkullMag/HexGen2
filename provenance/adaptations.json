@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-19",
+  "baseline_commit": "926d248f8aca43fe4ee629575a4ef9f97262b94f",
+  "scope": "Explicitly adapted TP=1 PP=1 serial native pilot; separate CPU reference and modeled scheduler.",
+  "modified_upstream_files": [
+    {
+      "path": "Makefile",
+      "baseline_sha256": "6f538d4a53848651622338e7314e8312ae0f30b6db3812e3b7b534ddfe174ed5",
+      "adapted_sha256": "d035a958bdd8a3f25548fa8a267dc43f95a73bd68cb5f2a063a5292d13f36003",
+      "reason": "Repair the head-only Makefile target."
+    },
+    {
+      "path": "benchmark/scheduling_algorithm_documents/arguments.py",
+      "baseline_sha256": "c8713c8287af9ad2d0d03e6802c28da9e0197eb328c61d6903d912923c60a33e",
+      "adapted_sha256": "2430043c8b7314ce79c367b8c51cafa0a188951805dfb8d3d1b51593f94a55ba",
+      "reason": "Add seed and structured result options."
+    },
+    {
+      "path": "benchmark/scheduling_algorithm_documents/globals.py",
+      "baseline_sha256": "c31092f4169e64f6b45887e344c62aa0443f316752b48abcd884e10bc7a48e4a",
+      "adapted_sha256": "8350753eb1ced05b19aa09a03823bdf15e7860f3c9abcdfc3729bce3bdc7247c",
+      "reason": "Seed Python random and NumPy with the recorded seed."
+    },
+    {
+      "path": "benchmark/scheduling_algorithm_documents/main.py",
+      "baseline_sha256": "2b0957e7b88f03cd7798f4799e715ff342101ffc5164ca046afcc14756fcd9cf",
+      "adapted_sha256": "e2d58d53c8285145d4299b7cc277901a10e890c4b5a12f8aad6060051e2f142a",
+      "reason": "Persist structured modeled results and fail when no feasible solution exists."
+    },
+    {
+      "path": "hexgen/hexgen_core/models/gpt.py",
+      "baseline_sha256": "ffdeabb3f457abe7ee987a2e7ee08bf04e370c16941c001c772d458f620e85ac",
+      "adapted_sha256": "9d0b8bbc544e52b559393eb8ea30e03ae879cee7fd9bfa9bec6ae546a5564414",
+      "reason": "Add an explicit unfused RMSNorm option and guard an absent optional tensor-parallel extension."
+    },
+    {
+      "path": "hexgen/hexgen_core/utils.py",
+      "baseline_sha256": "b3b548b407b6c3c5eccea4cb8d362a40044ca98d7ff9eda17dfab73b662edac2",
+      "adapted_sha256": "b2b4383a7033cd69daddf1d84de57478bf8c6e363b3f62b91e8c6bfde84e7392",
+      "reason": "Support the PyTorch 2.5 FSDP module rename."
+    },
+    {
+      "path": "hexgen/llama/kv_cache_sendrecv.py",
+      "baseline_sha256": "33c9e0bee4e8f797a4cca18e53b4fa3ee19dd0519b67a29e6fa1b4e6bd1ed328",
+      "adapted_sha256": "8b0bf60dc112da8b5055386cef395ffc0b0562e32c3f9014cace180c2a33466f",
+      "reason": "Use the new lossless metadata-aware protocol instead of the non-invertible int8 prototype."
+    }
+  ]
+}

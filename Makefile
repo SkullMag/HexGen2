@@ -1,3 +1,5 @@
+# Modified 2026-10-19: repair the head-only target. See scripts/fabric for the
+# separate pinned reproduction environment; these remain historical build rules.
 .PHONY: subsystem
 subsystem: go-install
 	export PATH=${PATH}:/usr/local/go/bin && cd ./third_party/ocf/src/ocf-core && git init && make build
@@ -22,7 +24,7 @@ flash-attn:
 hexgen: subsystem requirements flash-attn
 
 .PHONY: hexgen-head
-hexgen: subsystem requirements
+hexgen-head: subsystem requirements
 
 .PHONY: clean
 clean:

@@ -1,12 +1,13 @@
 import numpy as np
+import random  # Added 2026-10-19: seed Python's random choices as well as NumPy.
 from typing import List
 from utils import *
 from device import Device
 from config import Config
 
-np.random.seed(10)
-
 configs = Config()
+np.random.seed(configs.args.seed)
+random.seed(configs.args.seed)
 
 def update_configs(configs):
     machines = create_machines_list()

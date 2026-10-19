@@ -1,3 +1,5 @@
+# Modified 2026-10-19: structured modeled results and nonzero failure status.
+import json
 from graph_partition import *
 from maxflow import *
 from globals import *
@@ -46,6 +48,9 @@ if __name__ == "__main__":
         if optimized_clusters is not None:
             print(f"Optimized clusters: {optimized_clusters}")
             print(f"Throughput", round(max_throughput, 4))
+            meta_infos = {"optimized_clusters": optimized_clusters, "throughput": float(max_throughput)}
+        else:
+            raise SystemExit("Scheduler found no feasible genetic solution")
 
     else:
         for _ in range(configs.niter):
@@ -105,6 +110,23 @@ if __name__ == "__main__":
 
         else:
             print("Ops!!! Nothing is found.")
+            raise SystemExit("Scheduler found no feasible solution")
+
+    if args.output_json:
+        def json_value(value):
+            if isinstance(value, dict):
+                return {str(k): json_value(v) for k, v in value.items()}
+            if isinstance(value, (list, tuple)):
+                return [json_value(v) for v in value]
+            if hasattr(value, 'tolist'):
+                return json_value(value.tolist())
+            return value
+        result = {"classification": "modeled", "seed": args.seed,
+                  "arguments": vars(args), "result": json_value(meta_infos),
+                  "units_note": "Original artifact formulas; not measured serving throughput"}
+        with open(args.output_json, 'x') as output:
+            json.dump(result, output, indent=2, allow_nan=False)
+            output.write('\n')
 
     end = time.time()
     print("=" * 80)

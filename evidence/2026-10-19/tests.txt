@@ -1,0 +1,12 @@
+test_unfused_norm_matches_hf_without_cuda_extensions (test_native_norm.NativeNormTest.test_unfused_norm_matches_hf_without_cuda_extensions) ... ok
+test_failure_keeps_raw_logs_and_integrity_detects_tampering (test_record.RecordTest.test_failure_keeps_raw_logs_and_integrity_detects_tampering) ... ok
+test_interrupt_preserves_bundle_and_terminates_process_group (test_record.RecordTest.test_interrupt_preserves_bundle_and_terminates_process_group) ... ok
+test_timeout_terminates_child_and_finalizes_bundle (test_record.RecordTest.test_timeout_terminates_child_and_finalizes_bundle) ... ok
+test_reference_matches_full_context_and_two_rank_transfer (test_runtime.RuntimeTest.test_reference_matches_full_context_and_two_rank_transfer) ... ok
+test_invalid_metadata_is_rejected_before_allocating_payload (test_transport.TransportTest.test_invalid_metadata_is_rejected_before_allocating_payload) ... ok
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 11.535s
+
+OK
