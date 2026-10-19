@@ -21,7 +21,7 @@ class RuntimeTest(unittest.TestCase):
             command = [sys.executable, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node=2",
                        "-m", "hexgen2.run", "--model-dir", str(folder / "model"),
                        "--trace", str(ROOT / "configs/tiny-trace.jsonl"), "--output", str(folder / "output"),
-                       "--engine", "hf-reference", "--device", "cpu", "--dtype", "float32", "--check-colocated"]
+                       "--engine", "hf-reference", "--device", "cpu", "--dtype", "float32", "--check-colocated", "--profile-first"]
             result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             records = [json.loads(s) for s in (folder / "output/requests.jsonl").read_text().splitlines()]
@@ -30,6 +30,7 @@ class RuntimeTest(unittest.TestCase):
             self.assertTrue(all(r["colocated_matches"] for r in records))
             self.assertTrue(all(r["kv_packet_bytes"] > 0 for r in records))
             for rank in (0, 1):
+                self.assertTrue((folder / f"output/rank-{rank}-trace.json.gz").is_file())
                 events = [json.loads(s) for s in (folder / f"output/rank-{rank}-events.jsonl").read_text().splitlines()]
                 self.assertEqual(events[-1]["event"], "complete")
             # A retry must not overwrite earlier request records.

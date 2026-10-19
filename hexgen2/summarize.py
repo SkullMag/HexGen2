@@ -49,19 +49,21 @@ def summarize(run):
     completed_ranks = sorted(e["rank"] for e in events if e.get("event") == "complete")
     expected_ids = {r["id"] for r in offered}
     success_ids = {r["id"] for r in successes}
+    timed = [r for r in successes if not r.get("profiled", False)]
     return {
         "kind": "serial-correctness-pilot", "source": str(run),
         "integrity": "passed", "node_statuses": {m["node"]: m["status"] for m in manifests},
         "classifications": sorted({m["classification"] for m in manifests}),
         "complete": all(m["status"] == "success" for m in manifests) and completed_ranks == [0, 1]
                     and bool(offered) and success_ids == expected_ids and len(successes) == len(offered),
-        "offered": len(offered), "started": len(starts), "successful": len(successes),
+        "offered": len(offered), "started": len(starts & expected_ids), "successful": len(successes),
+        "profiled_successful": len(successes) - len(timed), "timing_samples": len(timed),
         "unsuccessful_or_incomplete": len(expected_ids - success_ids),
         "warmup_records": sum(r["warmup"] for r in requests),
         "correctness_failures": sum(r["status"] == "correctness_failure" for r in records),
         "failures": [e for e in events if e.get("event") == "failure"],
-        "roundtrip_ms": {"median": statistics.median([r["roundtrip_ms"] for r in successes]),
-                         "max": max(r["roundtrip_ms"] for r in successes)} if successes else None,
+        "roundtrip_ms": {"median": statistics.median([r["roundtrip_ms"] for r in timed]),
+                         "max": max(r["roundtrip_ms"] for r in timed)} if timed else None,
         "client_ttft": None, "serving_throughput": None,
         "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
     }

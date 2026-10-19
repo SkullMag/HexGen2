@@ -17,9 +17,11 @@ export NCCL_SOCKET_IFNAME="=$DATA_INTERFACE" GLOO_SOCKET_IFNAME="$DATA_INTERFACE
 # FABRIC NIC_Basic networking uses TCP here; no unverified RDMA/HCA assumptions.
 export NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DEBUG=DETAIL
 mkdir -p artifacts
+task_extra=()
+if [ "${PROFILE_FIRST:-0}" = 1 ]; then task_extra+=(--profile-first); fi
 exec .venv/bin/python -m hexgen2.record \
   --run-id "$RUN_ID" --node "$task_role" --classification native-pilot \
   --placement "$PLACEMENT" --model-dir "$MODEL_DIR" --trace "$TRACE" --network-dir "$NETWORK_DIR" --timeout 900 -- \
   .venv/bin/python -m torch.distributed.run --nnodes=2 --nproc_per_node=1 \
   --node_rank="$NODE_RANK" --master_addr="$MASTER_ADDR" --master_port="${MASTER_PORT:-29620}" \
-  -m hexgen2.run --model-dir "$MODEL_DIR" --trace "$TRACE" --check-colocated
+  -m hexgen2.run --model-dir "$MODEL_DIR" --trace "$TRACE" --check-colocated "${task_extra[@]}"

@@ -3,6 +3,7 @@
 import argparse
 from datetime import timedelta
 import hashlib
+import gzip
 import json
 import os
 from pathlib import Path
@@ -74,6 +75,7 @@ def main():
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--check-colocated", action="store_true",
                         help="Compare every output to the same engine without KV transfer")
+    parser.add_argument("--profile-first", action="store_true", help="Export an instrumented trace of the first measured request")
     args = parser.parse_args()
     if args.output is None:
         parser.error("Use the record wrapper or supply --output")
@@ -109,6 +111,7 @@ def main():
         digest = hashlib.sha256(canonical).hexdigest()
         local_config = {"trace_sha256": digest, "engine": args.engine, "dtype": args.dtype,
                         "seed": args.seed, "warmup": args.warmup,
+                        "profile_first": args.profile_first,
                         "model_identity": model.identity}
         hashes = [None, None]
         dist.all_gather_object(hashes, hashlib.sha256(json.dumps(local_config, sort_keys=True).encode()).hexdigest())
@@ -121,17 +124,28 @@ def main():
                                      "local_rank": int(os.environ["LOCAL_RANK"]), "allocated_bytes": torch.cuda.memory_allocated()}
                                     if args.device == "cuda" else None), **stamp()})
         attempts = [dict(rows[0], id=f"__warmup_{i}", warmup=True) for i in range(args.warmup)] + rows
+        profiled_done = False
         for index, row in enumerate(attempts):
             dist.barrier()
             model.synchronize()
+            profiler = None
+            if args.profile_first and not row.get("warmup", False) and not profiled_done:
+                profiled_done = True
+                activities = [torch.profiler.ProfilerActivity.CPU]
+                if args.device == "cuda":
+                    activities.append(torch.profiler.ProfilerActivity.CUDA)
+                profiler = torch.profiler.profile(activities=activities, record_shapes=True, profile_memory=True)
+                profiler.start()
             started = stamp()
             append(event_path, {"event": "request_start", "id": row["id"], "index": index, **started})
             if rank == 0:
-                first, cache, _ = model.prefill(row["input_ids"], row["max_new_tokens"])
+                with torch.profiler.record_function("hexgen2.prefill"):
+                    first, cache, _ = model.prefill(row["input_ids"], row["max_new_tokens"])
                 model.synchronize()
                 prefill_end = stamp()
-                packet_bytes = send_packet({"first": first, **{str(k): v for k, v in cache.items()}},
-                                          {"id": row["id"], "prompt_length": len(row["input_ids"])}, dst=1)
+                with torch.profiler.record_function("hexgen2.kv_send"):
+                    packet_bytes = send_packet({"first": first, **{str(k): v for k, v in cache.items()}},
+                                              {"id": row["id"], "prompt_length": len(row["input_ids"])}, dst=1)
                 model.synchronize()
                 sent = stamp()
                 tensors, reply = recv_packet(src=1)
@@ -140,6 +154,7 @@ def main():
                 if reply["id"] != row["id"] or len(tokens) != row["max_new_tokens"]:
                     raise ValueError("Request correlation or exact output-token count failed")
                 record = {"id": row["id"], "index": index, "warmup": bool(row.get("warmup", False)),
+                          "profiled": profiler is not None,
                           "engine": args.engine, "input_tokens": len(row["input_ids"]),
                           "output_tokens": len(tokens), "token_ids": tokens,
                           "start": started, "prefill_end": prefill_end, "send_end": sent, "end": ended,
@@ -161,7 +176,8 @@ def main():
                     raise ValueError("Transferred-cache output differs from colocated inference")
                 del cache
             else:
-                tensors, metadata = recv_packet(src=0)
+                with torch.profiler.record_function("hexgen2.kv_receive"):
+                    tensors, metadata = recv_packet(src=0)
                 model.synchronize()
                 received = stamp()
                 if metadata != {"id": row["id"], "prompt_length": len(row["input_ids"])}:
@@ -170,8 +186,9 @@ def main():
                 def on_token(token):
                     model.synchronize()
                     token_events.append({"token_id": token, **stamp()})
-                tokens = model.decode(tensors["first"], {int(k): v for k, v in tensors.items() if k != "first"},
-                                      len(row["input_ids"]), row["max_new_tokens"], on_token)
+                with torch.profiler.record_function("hexgen2.decode"):
+                    tokens = model.decode(tensors["first"], {int(k): v for k, v in tensors.items() if k != "first"},
+                                          len(row["input_ids"]), row["max_new_tokens"], on_token)
                 done = stamp()
                 reply = {"id": row["id"], "receive_end": received, "decode_end": done,
                          "token_events": token_events,
@@ -182,6 +199,14 @@ def main():
             append(event_path, {"event": "request_complete", "id": row["id"],
                                 "peak_gpu_allocated_bytes": torch.cuda.max_memory_allocated() if args.device == "cuda" else None,
                                 **stamp()})
+            if profiler:
+                profiler.stop()
+                trace_path = args.output / f"rank-{rank}-trace.json"
+                profiler.export_chrome_trace(str(trace_path))
+                with trace_path.open("rb") as source, gzip.open(str(trace_path) + ".gz", "wb") as target:
+                    import shutil
+                    shutil.copyfileobj(source, target)
+                trace_path.unlink()
         dist.barrier()
         append(event_path, {"event": "complete", "rank": rank, **stamp()})
     except BaseException as error:

@@ -79,6 +79,13 @@ outcome counts. Warm-ups are retained and identified explicitly. Per-token event
 are server-side observations; no cross-host monotonic timestamps are subtracted.
 Clock offsets and their uncertainty must be considered for cross-host UTC traces.
 
+Set `PROFILE_FIRST=1` in the FABRIC launcher (or use `--profile-first` directly)
+for a separate diagnostic run. It retains compressed per-rank Chrome traces with
+CPU/CUDA activities, tensor shapes and memory events. Stage ranges distinguish
+prefill, KV send/receive and decode. Profiled requests remain in outcome counts
+and raw data but are excluded from summary timing statistics, since profiling
+changes execution costs.
+
 The current pilot is batch=1, serial, fixed-length greedy decoding. There is no
 arrival process, online server or concurrency sweep yet; unknown workload options
 are rejected. Model/trace/run-setting identities must match across ranks. EOS does
