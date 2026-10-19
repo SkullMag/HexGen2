@@ -99,3 +99,13 @@ source/weight hashes, wheel hashes, and OS package inventory. Availability of ol
 FABRIC images/driver packages and gated model artifacts is an external dependency;
 record any inability to reacquire them. The bootstrap's image/package tags alone
 are not an immutable environment lock; retain each actual run's complete bundle.
+
+## Observed profiler exporter defect
+
+The live PyTorch 2.5 pilot emitted missing `Process Group Description` values in
+both original profiler traces. Preserve those raw compressed files and use
+`python -m hexgen2.profile RAW_TRACE --output FRESH_NORMALIZED_TRACE` from the
+current repository to create a separate parseable copy. The tool reports original
+and normalized hashes, counts the exact repairs, and rejects other malformed JSON.
+It never rewrites a recorded bundle or its checksum inventory. The published
+normalized profiles are derivative artifacts linked to their original hashes.

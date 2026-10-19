@@ -1,0 +1,71 @@
+{
+  "release_tag": "fabric-pilot-20261019",
+  "release_url": "https://github.com/SkullMag/HexGen2/releases/tag/fabric-pilot-20261019",
+  "assets": [
+    {
+      "name": "FABRIC_PILOT_20261019.md",
+      "bytes": 9180,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/FABRIC_PILOT_20261019.md"
+    },
+    {
+      "name": "SHA256SUMS",
+      "bytes": 1114,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/SHA256SUMS"
+    },
+    {
+      "name": "analysis.json",
+      "bytes": 40933,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/analysis.json"
+    },
+    {
+      "name": "fabric-pilot.json",
+      "bytes": 44350,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/fabric-pilot.json"
+    },
+    {
+      "name": "flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl",
+      "bytes": 187797312,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl"
+    },
+    {
+      "name": "hexgen2-controller-evidence.tgz",
+      "bytes": 13986,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/hexgen2-controller-evidence.tgz"
+    },
+    {
+      "name": "hexgen2-cpu-evidence.tgz",
+      "bytes": 3249888,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/hexgen2-cpu-evidence.tgz"
+    },
+    {
+      "name": "hexgen2-evidence-decode.tgz",
+      "bytes": 6407469,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/hexgen2-evidence-decode.tgz"
+    },
+    {
+      "name": "hexgen2-evidence-prefill.tgz",
+      "bytes": 7551539,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/hexgen2-evidence-prefill.tgz"
+    },
+    {
+      "name": "hexgen2-normalized-profiles.tgz",
+      "bytes": 2486000,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/hexgen2-normalized-profiles.tgz"
+    },
+    {
+      "name": "publication-review.json",
+      "bytes": 236,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/publication-review.json"
+    },
+    {
+      "name": "tests-passed.txt",
+      "bytes": 2181,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/tests-passed.txt"
+    },
+    {
+      "name": "tests-sandbox-failure.txt",
+      "bytes": 4677,
+      "url": "https://github.com/SkullMag/HexGen2/releases/download/fabric-pilot-20261019/tests-sandbox-failure.txt"
+    }
+  ]
+}

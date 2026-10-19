@@ -28,10 +28,15 @@ instructions, not the supported FABRIC procedure.
 - Each recorded attempt retains source, input/weight hashes, dependency versions,
   placement, raw logs, per-rank events, telemetry, failure/timeout state, and checksums.
 
-**Validation:** CPU reference inference, real two-process lossless transfer, exact
-output lengths, failure/timeout capture, and bundle integrity have passed locally.
-FABRIC provisioning and native CUDA inference remain pending live validation.
-See [docs/FABRIC.md](docs/FABRIC.md) and [docs/EXPERIMENT_RECORDS.md](docs/EXPERIMENT_RECORDS.md).
+**Validation:** The native CUDA pilot passed on two FABRIC A30s at CERN: three
+pretrained repetitions completed 15 measured requests / 243 output tokens, with
+exact token counts and equality to colocated inference. The synthetic cross-node
+fixture and an intentional missing-peer timeout also passed their checks. Both
+instances were released and the slice is confirmed `Dead`. CPU Linux CI and all
+8 local correctness tests pass. Raw, checksummed evidence is published with the
+[FABRIC pilot release](https://github.com/SkullMag/HexGen2/releases/tag/fabric-pilot-20261019).
+See [the live validation report](docs/FABRIC_PILOT_20261019.md),
+[setup instructions](docs/FABRIC.md), and [recording rules](docs/EXPERIMENT_RECORDS.md).
 
 ## Local correctness run
 

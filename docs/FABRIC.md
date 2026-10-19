@@ -70,11 +70,26 @@ TP=1 pilot. Exact installed package/OS/kernel/driver versions and setup outputs
 are saved under `artifacts/setup/` and copied into recorded run bundles.
 
 Setup ends with native numerical checks against full-context Hugging Face logits
-and tokens for the identical tiny checkpoint. **Do not advance if they fail.**
+and tokens at the same dtype/device for the identical tiny checkpoint. **Do not advance if they fail.**
 `models/tiny` is a correctness fixture, not a pretrained language model or a
 performance workload. For pretrained work, use a pinned, locally downloaded
 safetensors checkpoint and tokenizer, and retain its immutable repository revision
 and checksums. Model access/redistribution terms still apply.
+
+For the tested public checkpoint:
+
+```bash
+.venv/bin/python -m hexgen2.fetch_model \
+  --repo TinyLlama/TinyLlama-1.1B-Chat-v1.0 \
+  --revision fe8a4ea1ffedaf415f4da2f062534de366a451e6 --output models/pretrained
+.venv/bin/python -m hexgen2.validate --model-dir models/pretrained --fp32-diagnostic
+```
+
+The downloader requires a full immutable revision and verifies upstream LFS
+weight/tokenizer hashes. The validator uses a matching precision/device reference
+at unchanged `atol=0.03, rtol=0.03`; optional FP32 CPU drift is diagnostic only.
+The first FP16-versus-FP32 check exposed a precision mismatch in the validator;
+its failure and follow-up diagnostics are retained in the published evidence.
 
 ## Network and launch
 
@@ -142,3 +157,15 @@ The artifact's machine configuration is a modeled example, not FABRIC inventory:
 The bundle includes stdout/stderr and `runtime/scheduler-result.json`. Retain all
 search parameters and seeds. The original cost formulas/units require calibration
 before using their outputs to make measured FABRIC performance claims.
+
+## Release after collecting evidence
+
+After both node archives have been downloaded and their hashes and bundle
+inventories verified, release only the slice ID saved by this allocation. With
+the same FABlib controller configuration, obtain that exact slice with
+`fab.get_slice(slice_id=state["slice_id"])` and call `slice.delete()`. Do not use a
+bulk deletion operation. Save the request time and ID, then query the same ID
+using a fresh manager (including closed slices) until its state is `Dead`.
+Deletion is asynchronous: a successful request alone does not confirm release.
+The completed pilot's request and final `Dead` state are in
+[`resource-release.json`](../evidence/2026-10-19/resource-release.json).

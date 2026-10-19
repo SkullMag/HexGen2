@@ -1,0 +1,1381 @@
+{
+  "tested_runtime_commit": "32ed184618f6971541365faecb095f2089edd4e5",
+  "repository": "https://github.com/SkullMag/HexGen2",
+  "classification": "native-serial-correctness-pilot",
+  "model": {
+    "repository": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "revision": "fe8a4ea1ffedaf415f4da2f062534de366a451e6",
+    "identity_sha256": "5af1228c692f6d503157d678697cd6f12a751a1e0bdcfa54fb52972618dfc409"
+  },
+  "release": {
+    "slice_id": "04489373-4521-4a9d-93fd-f24583689fbb",
+    "name": "hexgen2-pilot-20261019",
+    "requested_at_utc": "2026-10-19T17:15:38.742310+00:00",
+    "before_state": "StableOK",
+    "delete_result": "None",
+    "deletion_requested": true,
+    "verified_at_utc": "2026-10-19T17:16:10.928220+00:00",
+    "slices": [
+      {
+        "slice_id": "04489373-4521-4a9d-93fd-f24583689fbb",
+        "name": "hexgen2-pilot-20261019",
+        "state": "Dead"
+      }
+    ],
+    "reservations": [],
+    "released": true
+  },
+  "analysis": {
+    "archives": [
+      {
+        "file": "hexgen2-evidence-decode.tgz",
+        "sha256": "b3c164a3e333da8a1faaa933b4861039f1fa3501721c05cb6e00f6bab146d947",
+        "bytes": 6407469
+      },
+      {
+        "file": "hexgen2-evidence-prefill.tgz",
+        "sha256": "fa5c86bd8b47a398673027ef86d803d1e54099cbf277f52692b40774cb017fb9",
+        "bytes": 7551539
+      }
+    ],
+    "runs": {
+      "native-fixture-20261019-001": {
+        "kind": "serial-correctness-pilot",
+        "source": "runs/native-fixture-20261019-001",
+        "integrity": "passed",
+        "node_statuses": {
+          "decode": "success",
+          "prefill": "success"
+        },
+        "classifications": [
+          "native-pilot"
+        ],
+        "complete": true,
+        "offered": 3,
+        "started": 3,
+        "successful": 3,
+        "profiled_successful": 0,
+        "timing_samples": 3,
+        "unsuccessful_or_incomplete": 0,
+        "warmup_records": 1,
+        "correctness_failures": 0,
+        "failures": [],
+        "roundtrip_ms": {
+          "median": 10.257746,
+          "max": 555.581033
+        },
+        "client_ttft": null,
+        "serving_throughput": null,
+        "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
+        "output_tokens": 8,
+        "all_colocated_match": true,
+        "requests": [
+          {
+            "id": "one-token",
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "token_ids": [
+              120
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 520,
+            "prefill_ms": 3.016265,
+            "send_ms": 0.704365,
+            "roundtrip_ms": 7.471766,
+            "profiled": false
+          },
+          {
+            "id": "short",
+            "input_tokens": 4,
+            "output_tokens": 4,
+            "token_ids": [
+              97,
+              97,
+              97,
+              97
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 2056,
+            "prefill_ms": 7.804392,
+            "send_ms": 0.858044,
+            "roundtrip_ms": 555.581033,
+            "profiled": false
+          },
+          {
+            "id": "longer",
+            "input_tokens": 7,
+            "output_tokens": 3,
+            "token_ids": [
+              58,
+              58,
+              26
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 3592,
+            "prefill_ms": 3.070796,
+            "send_ms": 0.757605,
+            "roundtrip_ms": 10.257746,
+            "profiled": false
+          }
+        ]
+      },
+      "native-missing-peer-20261019-001": {
+        "kind": "serial-correctness-pilot",
+        "source": "runs/native-missing-peer-20261019-001",
+        "integrity": "passed",
+        "node_statuses": {
+          "prefill": "timed_out"
+        },
+        "classifications": [
+          "native-pilot"
+        ],
+        "complete": false,
+        "offered": 0,
+        "started": 0,
+        "successful": 0,
+        "profiled_successful": 0,
+        "timing_samples": 0,
+        "unsuccessful_or_incomplete": 0,
+        "warmup_records": 0,
+        "correctness_failures": 0,
+        "failures": [],
+        "roundtrip_ms": null,
+        "client_ttft": null,
+        "serving_throughput": null,
+        "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
+        "output_tokens": 0,
+        "all_colocated_match": null,
+        "requests": [],
+        "expected_fault": "No decode process was launched; rendezvous is expected to time out before workload submission",
+        "planned_requests": 3
+      },
+      "native-pretrained-20261019-r1": {
+        "kind": "serial-correctness-pilot",
+        "source": "runs/native-pretrained-20261019-r1",
+        "integrity": "passed",
+        "node_statuses": {
+          "decode": "success",
+          "prefill": "success"
+        },
+        "classifications": [
+          "native-pilot"
+        ],
+        "complete": true,
+        "offered": 5,
+        "started": 5,
+        "successful": 5,
+        "profiled_successful": 1,
+        "timing_samples": 4,
+        "unsuccessful_or_incomplete": 0,
+        "warmup_records": 1,
+        "correctness_failures": 0,
+        "failures": [],
+        "roundtrip_ms": {
+          "median": 599.8563225,
+          "max": 839.224639
+        },
+        "client_ttft": null,
+        "serving_throughput": null,
+        "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
+        "output_tokens": 81,
+        "all_colocated_match": true,
+        "requests": [
+          {
+            "id": "capital",
+            "input_tokens": 13,
+            "output_tokens": 8,
+            "token_ids": [
+              450,
+              7483,
+              310,
+              3444,
+              338,
+              3681,
+              29889,
+              2
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 39.142748,
+            "send_ms": 5.7622,
+            "roundtrip_ms": 292.527183,
+            "profiled": true
+          },
+          {
+            "id": "network",
+            "input_tokens": 14,
+            "output_tokens": 16,
+            "token_ids": [
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13,
+              29909,
+              5172,
+              3564,
+              338,
+              7618,
+              1455
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 315400,
+            "prefill_ms": 27.929774,
+            "send_ms": 3.881532,
+            "roundtrip_ms": 528.815125,
+            "profiled": false
+          },
+          {
+            "id": "count",
+            "input_tokens": 13,
+            "output_tokens": 32,
+            "token_ids": [
+              3023,
+              29892,
+              5320,
+              29892,
+              4832,
+              29892,
+              9881,
+              29892,
+              9475,
+              29892,
+              14183,
+              29892,
+              3006,
+              29889,
+              13,
+              13,
+              29906,
+              29889,
+              3917,
+              292,
+              373,
+              29901,
+              7370,
+              411,
+              697,
+              322,
+              2302,
+              304,
+              3006,
+              29892,
+              769,
+              1827
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 26.768949,
+            "send_ms": 3.745938,
+            "roundtrip_ms": 839.224639,
+            "profiled": false
+          },
+          {
+            "id": "long-context",
+            "input_tokens": 82,
+            "output_tokens": 24,
+            "token_ids": [
+              304,
+              9801,
+              9483,
+              455,
+              29890,
+              1793,
+              322,
+              9637,
+              3097,
+              310,
+              13235,
+              27262,
+              15729,
+              29889,
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 1847304,
+            "prefill_ms": 34.40743,
+            "send_ms": 4.570939,
+            "roundtrip_ms": 670.89752,
+            "profiled": false
+          },
+          {
+            "id": "exactly-one",
+            "input_tokens": 6,
+            "output_tokens": 1,
+            "token_ids": [
+              14294
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 135176,
+            "prefill_ms": 27.51964,
+            "send_ms": 3.784801,
+            "roundtrip_ms": 33.489372,
+            "profiled": false
+          }
+        ]
+      },
+      "native-pretrained-20261019-r2": {
+        "kind": "serial-correctness-pilot",
+        "source": "runs/native-pretrained-20261019-r2",
+        "integrity": "passed",
+        "node_statuses": {
+          "decode": "success",
+          "prefill": "success"
+        },
+        "classifications": [
+          "native-pilot"
+        ],
+        "complete": true,
+        "offered": 5,
+        "started": 5,
+        "successful": 5,
+        "profiled_successful": 0,
+        "timing_samples": 5,
+        "unsuccessful_or_incomplete": 0,
+        "warmup_records": 1,
+        "correctness_failures": 0,
+        "failures": [],
+        "roundtrip_ms": {
+          "median": 357.064235,
+          "max": 700.628873
+        },
+        "client_ttft": null,
+        "serving_throughput": null,
+        "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
+        "output_tokens": 81,
+        "all_colocated_match": true,
+        "requests": [
+          {
+            "id": "capital",
+            "input_tokens": 13,
+            "output_tokens": 8,
+            "token_ids": [
+              450,
+              7483,
+              310,
+              3444,
+              338,
+              3681,
+              29889,
+              2
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 22.515788,
+            "send_ms": 2.644094,
+            "roundtrip_ms": 172.765579,
+            "profiled": false
+          },
+          {
+            "id": "network",
+            "input_tokens": 14,
+            "output_tokens": 16,
+            "token_ids": [
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13,
+              29909,
+              5172,
+              3564,
+              338,
+              7618,
+              1455
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 315400,
+            "prefill_ms": 22.386505,
+            "send_ms": 2.510924,
+            "roundtrip_ms": 357.064235,
+            "profiled": false
+          },
+          {
+            "id": "count",
+            "input_tokens": 13,
+            "output_tokens": 32,
+            "token_ids": [
+              3023,
+              29892,
+              5320,
+              29892,
+              4832,
+              29892,
+              9881,
+              29892,
+              9475,
+              29892,
+              14183,
+              29892,
+              3006,
+              29889,
+              13,
+              13,
+              29906,
+              29889,
+              3917,
+              292,
+              373,
+              29901,
+              7370,
+              411,
+              697,
+              322,
+              2302,
+              304,
+              3006,
+              29892,
+              769,
+              1827
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 22.104635,
+            "send_ms": 2.560908,
+            "roundtrip_ms": 700.628873,
+            "profiled": false
+          },
+          {
+            "id": "long-context",
+            "input_tokens": 82,
+            "output_tokens": 24,
+            "token_ids": [
+              304,
+              9801,
+              9483,
+              455,
+              29890,
+              1793,
+              322,
+              9637,
+              3097,
+              310,
+              13235,
+              27262,
+              15729,
+              29889,
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 1847304,
+            "prefill_ms": 26.483533,
+            "send_ms": 2.368605,
+            "roundtrip_ms": 559.298552,
+            "profiled": false
+          },
+          {
+            "id": "exactly-one",
+            "input_tokens": 6,
+            "output_tokens": 1,
+            "token_ids": [
+              14294
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 135176,
+            "prefill_ms": 22.885373,
+            "send_ms": 2.714848,
+            "roundtrip_ms": 27.478294,
+            "profiled": false
+          }
+        ]
+      },
+      "native-pretrained-20261019-r3": {
+        "kind": "serial-correctness-pilot",
+        "source": "runs/native-pretrained-20261019-r3",
+        "integrity": "passed",
+        "node_statuses": {
+          "decode": "success",
+          "prefill": "success"
+        },
+        "classifications": [
+          "native-pilot"
+        ],
+        "complete": true,
+        "offered": 5,
+        "started": 5,
+        "successful": 5,
+        "profiled_successful": 0,
+        "timing_samples": 5,
+        "unsuccessful_or_incomplete": 0,
+        "warmup_records": 1,
+        "correctness_failures": 0,
+        "failures": [],
+        "roundtrip_ms": {
+          "median": 355.068159,
+          "max": 698.716525
+        },
+        "client_ttft": null,
+        "serving_throughput": null,
+        "scope": "TP=1, PP=1 per phase, batch=1, serial fixed-length greedy decoding; no serving/SLO claim",
+        "output_tokens": 81,
+        "all_colocated_match": true,
+        "requests": [
+          {
+            "id": "capital",
+            "input_tokens": 13,
+            "output_tokens": 8,
+            "token_ids": [
+              450,
+              7483,
+              310,
+              3444,
+              338,
+              3681,
+              29889,
+              2
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 22.241472,
+            "send_ms": 2.662189,
+            "roundtrip_ms": 172.67003,
+            "profiled": false
+          },
+          {
+            "id": "network",
+            "input_tokens": 14,
+            "output_tokens": 16,
+            "token_ids": [
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13,
+              29909,
+              5172,
+              3564,
+              338,
+              7618,
+              1455
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 315400,
+            "prefill_ms": 22.170528,
+            "send_ms": 2.559646,
+            "roundtrip_ms": 355.068159,
+            "profiled": false
+          },
+          {
+            "id": "count",
+            "input_tokens": 13,
+            "output_tokens": 32,
+            "token_ids": [
+              3023,
+              29892,
+              5320,
+              29892,
+              4832,
+              29892,
+              9881,
+              29892,
+              9475,
+              29892,
+              14183,
+              29892,
+              3006,
+              29889,
+              13,
+              13,
+              29906,
+              29889,
+              3917,
+              292,
+              373,
+              29901,
+              7370,
+              411,
+              697,
+              322,
+              2302,
+              304,
+              3006,
+              29892,
+              769,
+              1827
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 292872,
+            "prefill_ms": 22.215382,
+            "send_ms": 2.485206,
+            "roundtrip_ms": 698.716525,
+            "profiled": false
+          },
+          {
+            "id": "long-context",
+            "input_tokens": 82,
+            "output_tokens": 24,
+            "token_ids": [
+              304,
+              9801,
+              9483,
+              455,
+              29890,
+              1793,
+              322,
+              9637,
+              3097,
+              310,
+              13235,
+              27262,
+              15729,
+              29889,
+              2,
+              29871,
+              13,
+              29966,
+              29989,
+              465,
+              22137,
+              29989,
+              29958,
+              13
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 1847304,
+            "prefill_ms": 25.94026,
+            "send_ms": 2.45053,
+            "roundtrip_ms": 556.832453,
+            "profiled": false
+          },
+          {
+            "id": "exactly-one",
+            "input_tokens": 6,
+            "output_tokens": 1,
+            "token_ids": [
+              14294
+            ],
+            "colocated_matches": true,
+            "kv_packet_bytes": 135176,
+            "prefill_ms": 22.249708,
+            "send_ms": 2.442745,
+            "roundtrip_ms": 26.685554,
+            "profiled": false
+          }
+        ]
+      }
+    },
+    "profiles": [
+      {
+        "run": "native-pretrained-20261019-r1",
+        "role": "decode",
+        "original_sha256": "59a62bed7af6a3dcbfc4fc8daf6ecee432500dff75047f7d6e7f3a068497c04e",
+        "original_json_valid": false,
+        "missing_process_group_descriptions_replaced_with_null": 28,
+        "kernel_count": 4732,
+        "flash_kernel_count": 154,
+        "flash_kernel_names": [
+          "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<64, 128, 128, 4, false, false, cutlass::half_t, Flash_kernel_traits<64, 128, 128, 4, cutlass::half_t> >, false, false, false, false, false, true, false, false>(flash::Flash_fwd_params)"
+        ],
+        "policy": "Preserve raw trace; repair only missing Process Group Description values in a separate copy"
+      },
+      {
+        "run": "native-pretrained-20261019-r1",
+        "role": "prefill",
+        "original_sha256": "6dd1107df4eff7fec108c2c7bb497994a001df3aee0eea4bc6c3cc1e6d8dba68",
+        "original_json_valid": false,
+        "missing_process_group_descriptions_replaced_with_null": 28,
+        "kernel_count": 6120,
+        "flash_kernel_count": 198,
+        "flash_kernel_names": [
+          "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<64, 128, 128, 4, false, false, cutlass::half_t, Flash_kernel_traits<64, 128, 128, 4, cutlass::half_t> >, false, false, false, false, false, true, false, false>(flash::Flash_fwd_params)",
+          "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<64, 128, 128, 4, false, false, cutlass::half_t, Flash_kernel_traits<64, 128, 128, 4, cutlass::half_t> >, false, true, false, false, false, true, false, false>(flash::Flash_fwd_params)"
+        ],
+        "policy": "Preserve raw trace; repair only missing Process Group Description values in a separate copy"
+      }
+    ],
+    "numerical_checks": {
+      "decode": {
+        "native-imported-fixture-validation.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "reference": {
+            "engine": "huggingface-eager",
+            "device": "cuda",
+            "dtype": "float16"
+          },
+          "fp32_comparison": null,
+          "model_identity": {
+            "files": {
+              "config.json": "44b6c1a07399a10b6e4808668a1ca11297f53ef4b6da18da27d56e756d5158b5",
+              "fixture.json": "0e4e142cd12df7310e0024cf3d45e08d791006307958d54a7ae497038a1deee8",
+              "generation_config.json": "5b3483ac487c163175e8ff639766cbc61051171f8ae03aec7e95ceddb4dc0195",
+              "model.safetensors": "33fa7ae0bf323b12cc9220935955b75fc4915d9ea0fb67e7a07497755e37afb3"
+            },
+            "sha256": "05b9bb616d618a09be8f0907a1e5c17ae119e4298657ecd2ab7a46f81f21603a"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                120
+              ],
+              "reference_tokens": [
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "reference_tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.00048828125
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                117,
+                30,
+                58
+              ],
+              "reference_tokens": [
+                117,
+                30,
+                58
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.00048828125
+            }
+          ]
+        },
+        "native-numerical-validation.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "model_identity": {
+            "files": {
+              "config.json": "44b6c1a07399a10b6e4808668a1ca11297f53ef4b6da18da27d56e756d5158b5",
+              "fixture.json": "0e4e142cd12df7310e0024cf3d45e08d791006307958d54a7ae497038a1deee8",
+              "generation_config.json": "5b3483ac487c163175e8ff639766cbc61051171f8ae03aec7e95ceddb4dc0195",
+              "model.safetensors": "7784f37d951f2f2ac2b45d58f9434adea3dcaef22291ba9ddcc31ba87b3bdbf8"
+            },
+            "sha256": "c0e1a6518dbbd36dd63f9ceda32a9b6d9813a7572b617bb0040f16fef8b403d6"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                120
+              ],
+              "reference_tokens": [
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004699528217315674
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "reference_tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004098266363143921
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                117,
+                30,
+                58
+              ],
+              "reference_tokens": [
+                117,
+                30,
+                58
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004722476005554199
+            }
+          ]
+        },
+        "native-pretrained-matched-precision.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "reference": {
+            "engine": "huggingface-eager",
+            "device": "cuda",
+            "dtype": "float16"
+          },
+          "fp32_comparison": "diagnostic only; acceptance uses matching dtype/device",
+          "model_identity": {
+            "files": {
+              "config.json": "486bedda3a6988332e60d9638a09ca4b260d34ebcf1b19e22cf3b140b63d8fe9",
+              "download-source.json": "b9b2825dc9194f038317a5301bea1450acd02270cd5a1f467f524bd0ae1c8f4d",
+              "eval_results.json": "637daaebe7aa8af0e678f9e79ec33fa29f8635090d45ec813f0e7474320d7351",
+              "generation_config.json": "18046d04f5bd8b4998095ecabdd17a1bf0053d9acdccead4a05be4a3575f3c5c",
+              "model.safetensors": "6e6001da2106d4757498752a021df6c2bdc332c650aae4bae6b0c004dcf14933",
+              "special_tokens_map.json": "82d96d7a9e6ced037f12394b7ea6a5b02e6ca87e0d11edaa8d60d9be857ce7db",
+              "tokenizer.json": "bcd04f0eadf90287bd26e1a183ac487d8a141b09b06aecb7725bbdd343640f2e",
+              "tokenizer.model": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347",
+              "tokenizer_config.json": "7b41ba7d0eb91e77914ca3dafde559ea3e19878769b7e68409e89bed5222e77a"
+            },
+            "sha256": "5af1228c692f6d503157d678697cd6f12a751a1e0bdcfa54fb52972618dfc409"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                529
+              ],
+              "reference_tokens": [
+                529
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.015625,
+              "fp32_diagnostic_max_logit_error": 0.1270275115966797
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                3,
+                29966,
+                29989,
+                5205
+              ],
+              "reference_tokens": [
+                3,
+                29966,
+                29989,
+                5205
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.033203125,
+              "fp32_diagnostic_max_logit_error": 0.029534101486206055
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                29947,
+                2,
+                29871
+              ],
+              "reference_tokens": [
+                29947,
+                2,
+                29871
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.02734375,
+              "fp32_diagnostic_max_logit_error": 0.023056507110595703
+            }
+          ]
+        }
+      },
+      "prefill": {
+        "native-imported-fixture-validation.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "reference": {
+            "engine": "huggingface-eager",
+            "device": "cuda",
+            "dtype": "float16"
+          },
+          "fp32_comparison": null,
+          "model_identity": {
+            "files": {
+              "config.json": "44b6c1a07399a10b6e4808668a1ca11297f53ef4b6da18da27d56e756d5158b5",
+              "fixture.json": "0e4e142cd12df7310e0024cf3d45e08d791006307958d54a7ae497038a1deee8",
+              "generation_config.json": "5b3483ac487c163175e8ff639766cbc61051171f8ae03aec7e95ceddb4dc0195",
+              "model.safetensors": "33fa7ae0bf323b12cc9220935955b75fc4915d9ea0fb67e7a07497755e37afb3"
+            },
+            "sha256": "05b9bb616d618a09be8f0907a1e5c17ae119e4298657ecd2ab7a46f81f21603a"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                120
+              ],
+              "reference_tokens": [
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "reference_tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.00048828125
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                117,
+                30,
+                58
+              ],
+              "reference_tokens": [
+                117,
+                30,
+                58
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.00048828125
+            }
+          ]
+        },
+        "native-numerical-validation.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "model_identity": {
+            "files": {
+              "config.json": "44b6c1a07399a10b6e4808668a1ca11297f53ef4b6da18da27d56e756d5158b5",
+              "fixture.json": "0e4e142cd12df7310e0024cf3d45e08d791006307958d54a7ae497038a1deee8",
+              "generation_config.json": "5b3483ac487c163175e8ff639766cbc61051171f8ae03aec7e95ceddb4dc0195",
+              "model.safetensors": "7784f37d951f2f2ac2b45d58f9434adea3dcaef22291ba9ddcc31ba87b3bdbf8"
+            },
+            "sha256": "c0e1a6518dbbd36dd63f9ceda32a9b6d9813a7572b617bb0040f16fef8b403d6"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                120
+              ],
+              "reference_tokens": [
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004699528217315674
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "reference_tokens": [
+                120,
+                120,
+                120,
+                120
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004098266363143921
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                117,
+                30,
+                58
+              ],
+              "reference_tokens": [
+                117,
+                30,
+                58
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.0004722476005554199
+            }
+          ]
+        },
+        "native-pretrained-matched-precision.json": {
+          "engine": "native",
+          "device": "cuda",
+          "dtype": "float16",
+          "status": "passed",
+          "reference": {
+            "engine": "huggingface-eager",
+            "device": "cuda",
+            "dtype": "float16"
+          },
+          "fp32_comparison": "diagnostic only; acceptance uses matching dtype/device",
+          "model_identity": {
+            "files": {
+              "config.json": "486bedda3a6988332e60d9638a09ca4b260d34ebcf1b19e22cf3b140b63d8fe9",
+              "download-source.json": "b9b2825dc9194f038317a5301bea1450acd02270cd5a1f467f524bd0ae1c8f4d",
+              "eval_results.json": "637daaebe7aa8af0e678f9e79ec33fa29f8635090d45ec813f0e7474320d7351",
+              "generation_config.json": "18046d04f5bd8b4998095ecabdd17a1bf0053d9acdccead4a05be4a3575f3c5c",
+              "model.safetensors": "6e6001da2106d4757498752a021df6c2bdc332c650aae4bae6b0c004dcf14933",
+              "special_tokens_map.json": "82d96d7a9e6ced037f12394b7ea6a5b02e6ca87e0d11edaa8d60d9be857ce7db",
+              "tokenizer.json": "bcd04f0eadf90287bd26e1a183ac487d8a141b09b06aecb7725bbdd343640f2e",
+              "tokenizer.model": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347",
+              "tokenizer_config.json": "7b41ba7d0eb91e77914ca3dafde559ea3e19878769b7e68409e89bed5222e77a"
+            },
+            "sha256": "5af1228c692f6d503157d678697cd6f12a751a1e0bdcfa54fb52972618dfc409"
+          },
+          "checks": [
+            {
+              "prompt_tokens": 1,
+              "max_new_tokens": 1,
+              "tokens": [
+                529
+              ],
+              "reference_tokens": [
+                529
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.015625,
+              "fp32_diagnostic_max_logit_error": 0.1270275115966797
+            },
+            {
+              "prompt_tokens": 4,
+              "max_new_tokens": 4,
+              "tokens": [
+                3,
+                29966,
+                29989,
+                5205
+              ],
+              "reference_tokens": [
+                3,
+                29966,
+                29989,
+                5205
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.033203125,
+              "fp32_diagnostic_max_logit_error": 0.029534101486206055
+            },
+            {
+              "prompt_tokens": 7,
+              "max_new_tokens": 3,
+              "tokens": [
+                29947,
+                2,
+                29871
+              ],
+              "reference_tokens": [
+                29947,
+                2,
+                29871
+              ],
+              "tokens_match": true,
+              "max_logit_error": 0.02734375,
+              "fp32_diagnostic_max_logit_error": 0.023056507110595703
+            }
+          ]
+        }
+      }
+    },
+    "network": {
+      "decode": {
+        "exit_code": "0",
+        "ping": "PING 10.92.10.2 (10.92.10.2) 56(84) bytes of data.\n64 bytes from 10.92.10.2: icmp_seq=1 ttl=64 time=0.136 ms\n64 bytes from 10.92.10.2: icmp_seq=2 ttl=64 time=0.078 ms\n64 bytes from 10.92.10.2: icmp_seq=3 ttl=64 time=0.090 ms\n64 bytes from 10.92.10.2: icmp_seq=4 ttl=64 time=0.079 ms\n64 bytes from 10.92.10.2: icmp_seq=5 ttl=64 time=0.056 ms\n64 bytes from 10.92.10.2: icmp_seq=6 ttl=64 time=0.067 ms\n64 bytes from 10.92.10.2: icmp_seq=7 ttl=64 time=0.079 ms\n64 bytes from 10.92.10.2: icmp_seq=8 ttl=64 time=0.085 ms\n64 bytes from 10.92.10.2: icmp_seq=9 ttl=64 time=0.071 ms\n64 bytes from 10.92.10.2: icmp_seq=10 ttl=64 time=0.079 ms\n\n--- 10.92.10.2 ping statistics ---\n10 packets transmitted, 10 received, 0% packet loss, time 9202ms\nrtt min/avg/max/mdev = 0.056/0.082/0.136/0.020 ms\n",
+        "clock": "Reference ID    : 4C7CE64A (prod-ntp-3.ntp4.ps5.canonical.com)\nStratum         : 3\nRef time (UTC)  : Mon Oct 19 17:06:08 2026\nSystem time     : 0.000055365 seconds slow of NTP time\nLast offset     : -0.000016057 seconds\nRMS offset      : 0.001057793 seconds\nFrequency       : 0.322 ppm slow\nResidual freq   : -0.001 ppm\nSkew            : 0.366 ppm\nRoot delay      : 0.026052892 seconds\nRoot dispersion : 0.001203763 seconds\nUpdate interval : 64.1 seconds\nLeap status     : Normal\n",
+        "iperf-forward.json": [
+          {
+            "streams": [
+              {
+                "sender": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.000182,
+                  "seconds": 10.000182,
+                  "bytes": 19564012336,
+                  "bits_per_second": 15650925021.9646,
+                  "retransmits": 1280,
+                  "max_snd_cwnd": 1624656,
+                  "max_rtt": 851,
+                  "min_rtt": 192,
+                  "mean_rtt": 518,
+                  "sender": true
+                },
+                "receiver": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040049,
+                  "seconds": 10.000182,
+                  "bytes": 19559350272,
+                  "bits_per_second": 15585063596.402767,
+                  "sender": true
+                }
+              }
+            ],
+            "sum_sent": {
+              "start": 0,
+              "end": 10.000182,
+              "seconds": 10.000182,
+              "bytes": 19564012336,
+              "bits_per_second": 15650925021.9646,
+              "retransmits": 1280,
+              "sender": true
+            },
+            "sum_received": {
+              "start": 0,
+              "end": 10.040049,
+              "seconds": 10.040049,
+              "bytes": 19559350272,
+              "bits_per_second": 15585063596.402767,
+              "sender": true
+            },
+            "cpu_utilization_percent": {
+              "host_total": 26.481607156597775,
+              "host_user": 0.2472634041435857,
+              "host_system": 26.234353668375114,
+              "remote_total": 26.806041016402464,
+              "remote_user": 0.2038081938962014,
+              "remote_system": 26.602235576112882
+            },
+            "sender_tcp_congestion": "cubic",
+            "receiver_tcp_congestion": "cubic"
+          }
+        ],
+        "iperf-reverse.json": [
+          {
+            "streams": [
+              {
+                "sender": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040468,
+                  "seconds": 10.040468,
+                  "bytes": 20574683576,
+                  "bits_per_second": 16393406025.296827,
+                  "retransmits": 3163,
+                  "max_snd_cwnd": 0,
+                  "max_rtt": 0,
+                  "min_rtt": 0,
+                  "mean_rtt": 0,
+                  "sender": false
+                },
+                "receiver": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.000025,
+                  "seconds": 10.000025,
+                  "bytes": 20567818240,
+                  "bits_per_second": 16454213456.466358,
+                  "sender": false
+                }
+              }
+            ],
+            "sum_sent": {
+              "start": 0,
+              "end": 10.040468,
+              "seconds": 10.040468,
+              "bytes": 20574683576,
+              "bits_per_second": 16393406025.296827,
+              "retransmits": 3163,
+              "sender": false
+            },
+            "sum_received": {
+              "start": 0,
+              "end": 10.000025,
+              "seconds": 10.000025,
+              "bytes": 20567818240,
+              "bits_per_second": 16454213456.466358,
+              "sender": false
+            },
+            "cpu_utilization_percent": {
+              "host_total": 93.29680964783934,
+              "host_user": 0.5854978293789813,
+              "host_system": 92.71133165642978,
+              "remote_total": 49.756480941092,
+              "remote_user": 0.20060285979071968,
+              "remote_system": 49.555887998389466
+            },
+            "sender_tcp_congestion": "cubic",
+            "receiver_tcp_congestion": "cubic"
+          }
+        ]
+      },
+      "prefill": {
+        "exit_code": "0",
+        "ping": "PING 10.92.10.3 (10.92.10.3) 56(84) bytes of data.\n64 bytes from 10.92.10.3: icmp_seq=1 ttl=64 time=3.50 ms\n64 bytes from 10.92.10.3: icmp_seq=2 ttl=64 time=0.083 ms\n64 bytes from 10.92.10.3: icmp_seq=3 ttl=64 time=0.074 ms\n64 bytes from 10.92.10.3: icmp_seq=4 ttl=64 time=0.072 ms\n64 bytes from 10.92.10.3: icmp_seq=5 ttl=64 time=0.075 ms\n64 bytes from 10.92.10.3: icmp_seq=6 ttl=64 time=0.065 ms\n64 bytes from 10.92.10.3: icmp_seq=7 ttl=64 time=0.108 ms\n64 bytes from 10.92.10.3: icmp_seq=8 ttl=64 time=0.204 ms\n64 bytes from 10.92.10.3: icmp_seq=9 ttl=64 time=0.078 ms\n64 bytes from 10.92.10.3: icmp_seq=10 ttl=64 time=0.109 ms\n\n--- 10.92.10.3 ping statistics ---\n10 packets transmitted, 10 received, 0% packet loss, time 9191ms\nrtt min/avg/max/mdev = 0.065/0.436/3.498/1.021 ms\n",
+        "clock": "Reference ID    : 2ADADAFE (prod-ntp-5.ntp1.ps5.canonical.com)\nStratum         : 3\nRef time (UTC)  : Mon Oct 19 17:05:05 2026\nSystem time     : 0.000106343 seconds slow of NTP time\nLast offset     : -0.000029124 seconds\nRMS offset      : 0.000599744 seconds\nFrequency       : 5.569 ppm slow\nResidual freq   : -0.007 ppm\nSkew            : 1.140 ppm\nRoot delay      : 0.026184879 seconds\nRoot dispersion : 0.001748168 seconds\nUpdate interval : 64.7 seconds\nLeap status     : Normal\n",
+        "iperf-server.json": [
+          {
+            "streams": [
+              {
+                "sender": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040049,
+                  "seconds": 10.040049,
+                  "bytes": 0,
+                  "bits_per_second": 0,
+                  "sender": false
+                },
+                "receiver": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040049,
+                  "seconds": 10.040049,
+                  "bytes": 19559350272,
+                  "bits_per_second": 15585063596.402767,
+                  "sender": false
+                }
+              }
+            ],
+            "sum_sent": {
+              "start": 0,
+              "end": 10.040049,
+              "seconds": 10.040049,
+              "bytes": 0,
+              "bits_per_second": 0,
+              "sender": false
+            },
+            "sum_received": {
+              "start": 0,
+              "end": 10.040049,
+              "seconds": 10.040049,
+              "bytes": 19559350272,
+              "bits_per_second": 15585063596.402767,
+              "sender": false
+            },
+            "cpu_utilization_percent": {
+              "host_total": 26.806041016402464,
+              "host_user": 0.2038081938962014,
+              "host_system": 26.602235576112882,
+              "remote_total": 0,
+              "remote_user": 0,
+              "remote_system": 0
+            },
+            "receiver_tcp_congestion": "cubic"
+          },
+          {
+            "streams": [
+              {
+                "sender": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040468,
+                  "seconds": 10.040468,
+                  "bytes": 20574683576,
+                  "bits_per_second": 16393406025.296827,
+                  "retransmits": 3163,
+                  "max_snd_cwnd": 1571080,
+                  "max_rtt": 645,
+                  "min_rtt": 204,
+                  "mean_rtt": 405,
+                  "sender": true
+                },
+                "receiver": {
+                  "socket": 5,
+                  "start": 0,
+                  "end": 10.040468,
+                  "seconds": 10.040468,
+                  "bytes": 0,
+                  "bits_per_second": 0,
+                  "sender": true
+                }
+              }
+            ],
+            "sum_sent": {
+              "start": 0,
+              "end": 10.040468,
+              "seconds": 10.040468,
+              "bytes": 20574683576,
+              "bits_per_second": 16393406025.296827,
+              "retransmits": 3163,
+              "sender": true
+            },
+            "sum_received": {
+              "start": 0,
+              "end": 10.040468,
+              "seconds": 10.040468,
+              "bytes": 0,
+              "bits_per_second": 0,
+              "sender": true
+            },
+            "cpu_utilization_percent": {
+              "host_total": 49.756480941092,
+              "host_user": 0.20060285979071968,
+              "host_system": 49.555887998389466,
+              "remote_total": 26.481607156597775,
+              "remote_user": 0.2472634041435857,
+              "remote_system": 26.234353668375114
+            },
+            "sender_tcp_congestion": "cubic"
+          },
+          {}
+        ]
+      }
+    },
+    "pretrained_repetitions_identical_tokens": true
+  },
+  "scope": "Two A30s at CERN, distinct physical hosts; TP=1 PP=1 per phase, batch=1, FP16, serial fixed-length greedy decoding. Scheduler not applied; no paper-scale performance/SLO claim."
+}

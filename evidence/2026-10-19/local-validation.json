@@ -189,7 +189,7 @@
     "scheduler_process_probes": "Access denied by local sandbox; explicitly recorded in each sample",
     "prior_attempt": "scheduler-20261019-a exposed an unguarded sampler error; retained locally; corrected before attempt b"
   },
-  "live_validation": {
+  "pre_reservation_snapshot": {
     "fabric_authentication": "verified",
     "active_owned_slices": 0,
     "candidate": "CERN cern-w3 / cern-w6, one A30 per host, 8 vCPU / 64 GiB / 100 GB per VM",

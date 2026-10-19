@@ -1,0 +1,18 @@
+{
+  "slice_id": "04489373-4521-4a9d-93fd-f24583689fbb",
+  "name": "hexgen2-pilot-20261019",
+  "requested_at_utc": "2026-10-19T17:15:38.742310+00:00",
+  "before_state": "StableOK",
+  "delete_result": "None",
+  "deletion_requested": true,
+  "verified_at_utc": "2026-10-19T17:16:10.928220+00:00",
+  "slices": [
+    {
+      "slice_id": "04489373-4521-4a9d-93fd-f24583689fbb",
+      "name": "hexgen2-pilot-20261019",
+      "state": "Dead"
+    }
+  ],
+  "reservations": [],
+  "released": true
+}
