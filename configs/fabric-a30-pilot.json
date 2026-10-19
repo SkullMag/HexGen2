@@ -1,0 +1,9 @@
+{
+  "kind": "unreserved-candidate",
+  "purpose": "Native HexGen-2 two-phase correctness pilot, TP=1/PP=1 per phase",
+  "nodes": [
+    {"name":"prefill","role":"prefill","rank":0,"site":"CERN","host":"cern-w3.fabric-testbed.net","cores":8,"ram":64,"disk":100,"address":"10.92.10.2"},
+    {"name":"decode","role":"decode","rank":1,"site":"CERN","host":"cern-w6.fabric-testbed.net","cores":8,"ram":64,"disk":100,"address":"10.92.10.3"}
+  ],
+  "network": {"name":"hexgen2-data","type":"L2Bridge","subnet":"10.92.10.0/24","transport":"NCCL over TCP on NIC_Basic; actual link measurements required"}
+}

@@ -29,6 +29,8 @@ from hexgen_core.models.opt import remap_state_dict_hf_opt
 from hexgen_core.models.gptj import remap_state_dict_hf_gptj
 from hexgen_core.models.gpt_neox import remap_state_dict_hf_gpt_neox
 from hexgen_core.models.falcon import remap_state_dict_hf_falcon
+# Added 2026-10-19: optional unfused norm for the documented FABRIC adaptation.
+from hexgen_core.modules.rms_norm import TorchRMSNorm
 
 try:
     from flash_attn.ops.fused_dense import ColumnParallelLinear
@@ -182,7 +184,8 @@ def create_block(config, layer_idx=None, process_group=None, device=None, dtype=
     mixer_cls = create_mixer_cls(config, layer_idx, process_group=process_group, **factory_kwargs)
     mlp_cls = create_mlp_cls(config, layer_idx, process_group=process_group, **factory_kwargs)
     use_rms_norm = getattr(config, 'rms_norm', False)
-    norm_cls = partial(nn.LayerNorm if not use_rms_norm else RMSNorm,
+    rms_norm_cls = TorchRMSNorm if getattr(config, 'use_torch_rms_norm', False) else RMSNorm
+    norm_cls = partial(nn.LayerNorm if not use_rms_norm else rms_norm_cls,
                        eps=config.layer_norm_epsilon, **factory_kwargs)
     # TD [2022-07-30]: Force residual in fp32, seems to make fp16 training more stable
     residual_in_fp32 = getattr(config, 'residual_in_fp32', False)
@@ -333,7 +336,8 @@ class GPTModel(GPTPreTrainedModel):
                 raise ImportError('dropout_layer_norm is not installed')
         if self.prenorm:
             self.drop_f = nn.Dropout(config.resid_pdrop)
-            norm_cls = nn.LayerNorm if not use_rms_norm else RMSNorm
+            rms_norm_cls = TorchRMSNorm if getattr(config, 'use_torch_rms_norm', False) else RMSNorm
+            norm_cls = nn.LayerNorm if not use_rms_norm else rms_norm_cls
             self.ln_f = norm_cls(config.hidden_size, eps=config.layer_norm_epsilon,
                                  **factory_kwargs)
         if process_group is not None:
@@ -471,7 +475,8 @@ class GPTLMHeadModel(GPTPreTrainedModel, GenerationMixin):
             hidden_states = self.project_out(hidden_states)
         lm_logits = self.lm_head(hidden_states)
         # During inference, we want the full logit for sampling
-        if isinstance(self.lm_head, ColumnParallelLinear) and inference_params is not None:
+        # Modified 2026-10-19: an optional extension may be absent in TP=1 mode.
+        if ColumnParallelLinear is not None and isinstance(self.lm_head, ColumnParallelLinear) and inference_params is not None:
             lm_logits, _ = all_gather_raw(lm_logits, self.lm_head.process_group)
             lm_logits = rearrange(lm_logits, '(n b) ... d -> b ... (n d)', b=hidden_states.shape[0])
         CausalLMOutput = namedtuple('CausalLMOutput', ['logits'])

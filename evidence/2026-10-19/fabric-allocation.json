@@ -1,0 +1,92 @@
+{
+  "captured_utc": "2026-10-19T16:48:25.673421+00:00",
+  "kind": "actual-fabric-allocation",
+  "slice_id": "04489373-4521-4a9d-93fd-f24583689fbb",
+  "slice_name": "hexgen2-pilot-20261019",
+  "state": "StableOK",
+  "lease_end": "2026-10-19 20:42:40 +0000",
+  "nodes": [
+    {
+      "name": "prefill",
+      "role": "prefill",
+      "rank": 0,
+      "site": "CERN",
+      "physical_host": "cern-w3.fabric-testbed.net",
+      "image": "docker_ubuntu_22",
+      "cores": 8,
+      "ram_gib": 64,
+      "disk_gb": 100,
+      "reservation_state": "Active",
+      "fim": {
+        "capacities": "{ core: 2 , ram: 8 G, disk: 10 G}",
+        "capacity_allocations": "{ core: 8 , ram: 64 G, disk: 100 G}",
+        "capacity_hints": "{ instance_type: fabric.c8.m64.d100}",
+        "labels": "{ instance_parent: cern-w3.fabric-testbed.net}",
+        "label_allocations": "{ instance: instance-000031d2, instance_parent: cern-w3.fabric-testbed.net}"
+      },
+      "components": [
+        {
+          "name": "prefill-gpu",
+          "model": "GPU_A30",
+          "labels": "{ bdf: ['0000:25:00.0'], numa: ['2']}",
+          "label_allocations": "{ bdf: ['0000:08:00.0'], numa: ['2']}"
+        },
+        {
+          "name": "prefill-data",
+          "model": "NIC_Basic",
+          "labels": "{ bdf: 0000:e2:00.6, numa: 4}",
+          "label_allocations": "{ bdf: ['0000:07:00.0'], numa: 4}"
+        }
+      ],
+      "interface": "enp7s0",
+      "actual_addresses": "10.92.10.2",
+      "configured_data_address": "10.92.10.2",
+      "tp": 1,
+      "pp": 1
+    },
+    {
+      "name": "decode",
+      "role": "decode",
+      "rank": 1,
+      "site": "CERN",
+      "physical_host": "cern-w6.fabric-testbed.net",
+      "image": "docker_ubuntu_22",
+      "cores": 8,
+      "ram_gib": 64,
+      "disk_gb": 100,
+      "reservation_state": "Active",
+      "fim": {
+        "capacities": "{ core: 2 , ram: 8 G, disk: 10 G}",
+        "capacity_allocations": "{ core: 8 , ram: 64 G, disk: 100 G}",
+        "capacity_hints": "{ instance_type: fabric.c8.m64.d100}",
+        "labels": "{ instance_parent: cern-w6.fabric-testbed.net}",
+        "label_allocations": "{ instance: instance-000031d1, instance_parent: cern-w6.fabric-testbed.net}"
+      },
+      "components": [
+        {
+          "name": "decode-gpu",
+          "model": "GPU_A30",
+          "labels": "{ bdf: ['0000:25:00.0'], numa: ['2']}",
+          "label_allocations": "{ bdf: ['0000:08:00.0'], numa: ['2']}"
+        },
+        {
+          "name": "decode-data",
+          "model": "NIC_Basic",
+          "labels": "{ bdf: 0000:e2:0a.0, numa: 4}",
+          "label_allocations": "{ bdf: ['0000:07:00.0'], numa: 4}"
+        }
+      ],
+      "interface": "enp7s0",
+      "actual_addresses": "10.92.10.3",
+      "configured_data_address": "10.92.10.3",
+      "tp": 1,
+      "pp": 1
+    }
+  ],
+  "network": {
+    "name": "hexgen2-data",
+    "type": "L2Bridge",
+    "subnet": "10.92.10.0/24",
+    "transport": "NCCL over TCP on NIC_Basic; actual link measurements required"
+  }
+}

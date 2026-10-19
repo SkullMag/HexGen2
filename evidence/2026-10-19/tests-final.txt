@@ -1,0 +1,19 @@
+/Users/oleg/.codex/.chatgpt-projects/g-p-6aa1e5c9d73c8191852ea8325d889363/work/HexGen2/.venv/lib/python3.11/site-packages/transformers/utils/generic.py:441: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+/Users/oleg/.codex/.chatgpt-projects/g-p-6aa1e5c9d73c8191852ea8325d889363/work/HexGen2/.venv/lib/python3.11/site-packages/transformers/utils/generic.py:309: FutureWarning: `torch.utils._pytree._register_pytree_node` is deprecated. Please use `torch.utils._pytree.register_pytree_node` instead.
+  _torch_pytree._register_pytree_node(
+test_unfused_norm_matches_hf_without_cuda_extensions (test_native_norm.NativeNormTest.test_unfused_norm_matches_hf_without_cuda_extensions) ... ok
+test_repair_is_limited_to_the_known_exporter_defect (test_profile.ProfileTest.test_repair_is_limited_to_the_known_exporter_defect) ... ok
+test_failure_keeps_raw_logs_and_integrity_detects_tampering (test_record.RecordTest.test_failure_keeps_raw_logs_and_integrity_detects_tampering) ... ok
+test_interrupt_preserves_bundle_and_terminates_process_group (test_record.RecordTest.test_interrupt_preserves_bundle_and_terminates_process_group) ... ok
+test_timeout_terminates_child_and_finalizes_bundle (test_record.RecordTest.test_timeout_terminates_child_and_finalizes_bundle) ... ok
+test_reference_matches_full_context_and_two_rank_transfer (test_runtime.RuntimeTest.test_reference_matches_full_context_and_two_rank_transfer) ... ok
+test_invalid_metadata_is_rejected_before_allocating_payload (test_transport.TransportTest.test_invalid_metadata_is_rejected_before_allocating_payload) ... ok
+test_lossless_real_process_roundtrip (test_transport.TransportTest.test_lossless_real_process_roundtrip) ... {"bundle": "/private/var/folders/b0/vnjs253j5qx_tvj0_xp7ltjw0000gn/T/tmpo6an6fnu/failure/local", "status": "failed", "exit_code": 7}
+{"bundle": "/private/var/folders/b0/vnjs253j5qx_tvj0_xp7ltjw0000gn/T/tmpn22wqlo8/timeout/local", "status": "timed_out", "exit_code": 124}
+ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 10.717s
+
+OK

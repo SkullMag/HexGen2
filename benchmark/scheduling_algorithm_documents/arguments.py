@@ -2,6 +2,9 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser()
+    # Added 2026-10-19: record and seed every stochastic scheduler run.
+    parser.add_argument('--seed', type=int, default=123)
+    parser.add_argument('--output-json', help='Write a structured modeled result to a fresh file')
     
     parser.add_argument('--model-size', type=str, default='llama-7b',
                         help='Instruct which model to work on')

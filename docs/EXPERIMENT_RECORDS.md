@@ -51,3 +51,61 @@ Retain run settings through an explicit allowlist; do not dump the entire proces
 environment. Exclude authentication tokens, SSH keys, and FABRIC access tokens.
 Respect model/dataset redistribution terms; where data cannot be redistributed,
 retain exact revisions, hashes, access instructions, and the limitation.
+
+## Implemented recorder and limits
+
+`python -m hexgen2.record --help` wraps commands with a wall-clock deadline and
+creates a fresh `runs/<run-id>/<node>/` bundle. It copies tracked and non-ignored
+untracked working source into a tarball, records the base commit/dirty patch and
+per-file hashes, snapshots explicit trace/placement/additional inputs and all
+local safetensors/config/tokenizer hashes, and captures stdout/stderr plus sampled
+system/process/network/GPU state. Setup logs and pre-run network measurements are
+copied when provided. NCCL debug files are placed inside each node's bundle.
+Dependency freezes, OS/kernel/driver/GPU topology, interfaces/routes, clock and
+resource-limit diagnostics retain return codes and unavailable-probe reasons.
+Only an allowlist of environment variables is retained; credentials are never
+collected from the entire environment.
+
+Timeouts terminate the newly launched process group, preserve its outputs, and
+finalize manifest/checksums with exit 124. Interrupts use exit 130. Nonzero child
+exits remain failures. Sampler crashes mark the capture incomplete; access-denied
+process counters are recorded as unavailable. Do not overwrite or discard these
+attempts when retrying. Host crashes/SIGKILL can leave a `running` manifest or
+missing checksum file; the verifier treats those bundles as incomplete.
+
+`python -m hexgen2.summarize runs/<run-id>` verifies all node files before computing
+serial-pilot statistics. It includes unfinished/failed offered requests in the
+outcome counts. Warm-ups are retained and identified explicitly. Per-token events
+are server-side observations; no cross-host monotonic timestamps are subtracted.
+Clock offsets and their uncertainty must be considered for cross-host UTC traces.
+
+Set `PROFILE_FIRST=1` in the FABRIC launcher (or use `--profile-first` directly)
+for a separate diagnostic run. It retains compressed per-rank Chrome traces with
+CPU/CUDA activities, tensor shapes and memory events. Stage ranges distinguish
+prefill, KV send/receive and decode. Profiled requests remain in outcome counts
+and raw data but are excluded from summary timing statistics, since profiling
+changes execution costs.
+
+The current pilot is batch=1, serial, fixed-length greedy decoding. There is no
+arrival process, online server or concurrency sweep yet; unknown workload options
+are rejected. Model/trace/run-setting identities must match across ranks. EOS does
+not shorten fixed-length runs. Runtime identity is `native` or `hf-reference` in
+every request record. GPU telemetry covers all visible GPUs and records unsupported
+queries; CPU reference runs explicitly lack GPU telemetry. Inspect sampler gaps,
+clock availability, and every diagnostic's exit code before reporting results.
+
+A captured environment is reconstructable from the retained package versions,
+source/weight hashes, wheel hashes, and OS package inventory. Availability of old
+FABRIC images/driver packages and gated model artifacts is an external dependency;
+record any inability to reacquire them. The bootstrap's image/package tags alone
+are not an immutable environment lock; retain each actual run's complete bundle.
+
+## Observed profiler exporter defect
+
+The live PyTorch 2.5 pilot emitted missing `Process Group Description` values in
+both original profiler traces. Preserve those raw compressed files and use
+`python -m hexgen2.profile RAW_TRACE --output FRESH_NORMALIZED_TRACE` from the
+current repository to create a separate parseable copy. The tool reports original
+and normalized hashes, counts the exact repairs, and rejects other malformed JSON.
+It never rewrites a recorded bundle or its checksum inventory. The published
+normalized profiles are derivative artifacts linked to their original hashes.

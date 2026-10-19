@@ -1,86 +1,99 @@
 # HexGen-2 on FABRIC
 
-This repository starts a reproduction of **HexGen-2: Disaggregated Generative
-Inference of LLMs in Heterogeneous Environment** (ICLR 2025), by Youhe Jiang,
-Ran Yan, and Binhang Yuan.
+Reproduction work for **HexGen-2: Disaggregated Generative Inference of LLMs in
+Heterogeneous Environment** (Youhe Jiang, Ran Yan, Binhang Yuan; ICLR 2025).
+The goal is to run HexGen-2 on FABRIC and preserve the evidence needed to reproduce
+results and investigate anomalies.
 
-The project goal is to get HexGen-2 running on FABRIC and retain enough source,
-environment, placement, workload, and raw measurement data to reproduce findings
-and investigate anomalies.
+The original code comes from the [official ICLR supplement](https://proceedings.iclr.cc/paper_files/paper/2025/file/0b941a1e5fbce23fe46b049999d04ed0-Supplemental-Conference.zip).
+The [paper page](https://proceedings.iclr.cc/paper_files/paper/2025/hash/0b941a1e5fbce23fe46b049999d04ed0-Abstract-Conference.html)
+links the paper and artifact. Original documentation is in
+[README.upstream.md](README.upstream.md); it contains historical prototype
+instructions, not the supported FABRIC procedure.
 
-## Source and status
+## Current implementation
 
-The baseline comes from the authors' [official ICLR 2025 source supplement](https://proceedings.iclr.cc/paper_files/paper/2025/file/0b941a1e5fbce23fe46b049999d04ed0-Supplemental-Conference.zip).
-See the [paper page](https://proceedings.iclr.cc/paper_files/paper/2025/hash/0b941a1e5fbce23fe46b049999d04ed0-Abstract-Conference.html),
-[paper PDF](https://proceedings.iclr.cc/paper_files/paper/2025/file/0b941a1e5fbce23fe46b049999d04ed0-Paper-Conference.pdf),
-and [arXiv record](https://arxiv.org/abs/2502.07903).
+- A two-rank pilot separates prefill and decode using the artifact's native
+  `GPTLMHeadModel`, attention, MLP and KV-cache implementation. It strictly loads
+  actual safetensors weights, transfers only live cache positions without
+  quantization, and verifies exact output-token counts and colocated equivalence.
+- The native pilot uses FlashAttention 2.7.4.post1, unfused PyTorch RMSNorm/dense/MLP,
+  one GPU per phase, TP=1, PP=1, batch=1, fixed-length greedy decoding. These are
+  explicit adaptations, not a reconstruction of all published configurations.
+- A separate `hf-reference` CPU backend validates the transport and harness.
+  Its results are labelled CPU reference, never native HexGen-2 GPU performance.
+- The supplied scheduler has an explicit random seed, structured modeled output,
+  and nonzero failure status when no feasible plan is found. Its cost estimates
+  are not calibrated to FABRIC or automatically applied to the runtime pilot.
+- Each recorded attempt retains source, input/weight hashes, dependency versions,
+  placement, raw logs, per-rank events, telemetry, failure/timeout state, and checksums.
 
-- Imported 415 files; omitted 538 macOS metadata files.
-- Preserved the supplied source and license files. Replaced embedded Hugging Face
-  credentials in four example files with `HF_TOKEN` environment-variable references.
-- Preserved the authors' original top-level instructions in
-  [README.upstream.md](README.upstream.md).
-- Recorded the archive URL, SHA-256, file hashes, and import changes in
-  [provenance/upstream.json](provenance/upstream.json).
-- **FABRIC deployment and GPU inference have not been validated.**
+**Validation:** The native CUDA pilot passed on two FABRIC A30s at CERN: three
+pretrained repetitions completed 15 measured requests / 243 output tokens, with
+exact token counts and equality to colocated inference. The synthetic cross-node
+fixture and an intentional missing-peer timeout also passed their checks. Both
+instances were released and the slice is confirmed `Dead`. CPU Linux CI and all
+8 local correctness tests pass. Raw, checksummed evidence is published with the
+[FABRIC pilot release](https://github.com/SkullMag/HexGen2/releases/tag/fabric-pilot-20261019).
+See [the live validation report](docs/FABRIC_PILOT_20261019.md),
+[setup instructions](docs/FABRIC.md), and [recording rules](docs/EXPERIMENT_RECORDS.md).
 
-The lab's [HexGen-3 repository](https://github.com/Relaxed-System-Lab/HexGen-3)
-describes a newer runtime. This project uses the ICLR HexGen-2 artifact as its
-baseline rather than substituting that runtime.
+## Local correctness run
 
-## Repository map
+Python 3.11 is used for local validation; the GPU setup uses Ubuntu 22.04/Python 3.10.
+From the repository root:
 
-| Path | Contents |
-| --- | --- |
-| `benchmark/scheduling_algorithm_documents/` | Scheduler, cost model, and sample machine configuration |
-| `hexgen/` | Supplied inference, parallelism, and KV-cache code |
-| `benchmark/hexgen-2_documents/` | HexGen-2 launcher examples and backend instructions |
-| `benchmark/send_request/` | Supplied request-generation utilities |
-| `third_party/` | Dependencies included in the supplement |
-| `docs/FABRIC.md` | Initial deployment work and confirmed artifact gaps |
-| `docs/EXPERIMENT_RECORDS.md` | Required records for each experiment |
-| `provenance/upstream.json` | Import provenance and file-level checksums |
-| `runs/` | Local run bundles, excluded from Git by default |
+```bash
+python3.11 -m venv .venv
+.venv/bin/pip install pip==24.3.1 -r requirements-reproduction.txt
+.venv/bin/python -m hexgen2.fixture --output models/tiny
+.venv/bin/python -m hexgen2.validate --model-dir models/tiny --engine hf-reference --device cpu --dtype float32
+.venv/bin/python -m hexgen2.record \
+  --run-id local-reference-001 --node local --classification cpu-reference \
+  --placement configs/local-reference-placement.json --model-dir models/tiny \
+  --trace configs/tiny-trace.jsonl --timeout 60 -- \
+  .venv/bin/python -m torch.distributed.run --standalone --nproc_per_node=2 \
+  -m hexgen2.run --model-dir models/tiny --trace configs/tiny-trace.jsonl \
+  --engine hf-reference --device cpu --dtype float32 --check-colocated
+.venv/bin/python -m hexgen2.summarize runs/local-reference-001
+.venv/bin/python -m unittest discover -s tests -v
+```
 
-## Verify the imported source
+`models/tiny` contains seeded random weights for correctness only. A new attempt
+must use a fresh run ID; neither the recorder nor the rank logger overwrites runs.
 
-From the repository root, using Python 3 with no extra packages:
+## Source integrity
 
 ```bash
 python3 scripts/verify_upstream.py
 ```
 
-Optionally download the original archive and verify its checksum too:
+[provenance/upstream.json](provenance/upstream.json) records the original ZIP URL,
+SHA-256, and all 415 imported file hashes. MacOS metadata was omitted and embedded
+Hugging Face credentials were removed from four examples before the initial
+public commit. [provenance/adaptations.json](provenance/adaptations.json) records
+subsequent changes to imported files. `--original` compares strictly to the
+sanitized initial import; `--archive path/to/supplement.zip` also verifies the ZIP.
+New harness files are versioned in Git and copied into every recorded source bundle.
 
-```bash
-mkdir -p artifacts
-curl -fL 'https://proceedings.iclr.cc/paper_files/paper/2025/file/0b941a1e5fbce23fe46b049999d04ed0-Supplemental-Conference.zip' \
-  -o artifacts/iclr2025-hexgen2-supplement.zip
-python3 scripts/verify_upstream.py --archive artifacts/iclr2025-hexgen2-supplement.zip
-```
+## Layout
 
-The verifier checks the imported baseline, including the documented credential
-replacements. A later source modification will fail this comparison; retain its
-Git diff as part of the experiment record rather than silently updating the baseline.
-
-## Next steps
-
-1. Establish a pinned environment and run the CPU scheduler with captured inputs
-   and logs.
-2. Resolve the supplied runtime and launcher gaps listed in
-   [the FABRIC plan](docs/FABRIC.md).
-3. Inspect current FABRIC GPU placements and validate one small disaggregated
-   inference run.
-4. Add workload replay and measurement capture before performance sweeps.
-
-The original setup commands remain available in `README.upstream.md`; they have
-not yet been adapted into a validated FABRIC installation procedure.
+| Path | Contents |
+| --- | --- |
+| `hexgen2/` | Supported recorder, two-rank pilot, reference validation, scheduler wrapper and FABRIC controller |
+| `hexgen/` | Imported native model/cache/parallelism code, with documented adaptations |
+| `benchmark/scheduling_algorithm_documents/` | Authors' scheduling and cost-model implementation |
+| `scripts/fabric/` | GPU environment setup, network measurements and per-node launcher |
+| `configs/` | Tiny correctness trace, CPU placement description, unreserved FABRIC candidate |
+| `tests/` | Real multi-process transfer and runtime/capture correctness tests |
+| `runs/` | Local run bundles, ignored by Git; publish reviewed bundles with durable locations |
 
 ## License and citation
 
-The supplement includes the [Apache-2.0 license](LICENSE). Included third-party
-notices and licenses remain in place. New reproduction documentation and tooling
-are provided under Apache-2.0 as well.
+[Apache-2.0](LICENSE); included third-party notices are preserved. New reproduction
+code/documentation also uses Apache-2.0. This is an independent artifact import;
+no upstream Git history was present in the ZIP. The lab's newer
+[HexGen-3 repository](https://github.com/Relaxed-System-Lab/HexGen-3) is a separate runtime.
 
 ```bibtex
 @inproceedings{jiang2025hexgen2,

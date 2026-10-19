@@ -1,0 +1,5 @@
+{"id":"capital","prompt":"Q: What is the capital of France?\nA:","max_new_tokens":8}
+{"id":"network","prompt":"Explain in one sentence why a fast network helps distributed computing.","max_new_tokens":16}
+{"id":"count","prompt":"Count from one to ten: one, two, three,","max_new_tokens":32}
+{"id":"long-context","prompt":"Distributed inference separates model computations across devices. A reproducible experiment records the hardware, network, software versions, model weights, input prompts, arrival times, generated tokens, failures, and raw measurements. When an anomaly occurs, these records help determine whether it came from computation, communication, scheduling, or measurement. Summarize the purpose of keeping these records in one sentence:","max_new_tokens":24}
+{"id":"exactly-one","prompt":"The opposite of cold is","max_new_tokens":1}

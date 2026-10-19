@@ -1,0 +1,9 @@
+{
+  "kind": "local-cpu-correctness-reference",
+  "fabric": false,
+  "ranks": [
+    {"rank": 0, "role": "prefill", "host": "local", "tp": 1, "pp": 1},
+    {"rank": 1, "role": "decode", "host": "local", "tp": 1, "pp": 1}
+  ],
+  "network": "local Gloo process group; no FABRIC or GPU claim"
+}

@@ -5,7 +5,11 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.fsdp._common_utils import _FSDPState, TrainingState
-from torch.distributed.fsdp.flat_param import FlatParamHandle
+# Modified 2026-10-19: support the pinned PyTorch 2.5 runtime's module rename.
+try:
+    from torch.distributed.fsdp.flat_param import FlatParamHandle
+except ModuleNotFoundError:
+    from torch.distributed.fsdp._flat_param import FlatParamHandle
 from torch.distributed.fsdp._runtime_utils import _post_backward_hook
 import functools, weakref
 
