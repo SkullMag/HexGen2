@@ -1,0 +1,21 @@
+# Local credentials and environments
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+._*
+
+# Downloaded dependencies, model weights, and generated runs
+flash-attention/
+models/
+checkpoints/
+separate_state_dicts/
+artifacts/
+runs/*
+!runs/README.md

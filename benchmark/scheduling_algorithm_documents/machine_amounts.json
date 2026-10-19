@@ -1,0 +1,19 @@
+{
+    "baseline_machines": {"name": "A800", "tensor_core": 312, "memory": 80, "ngpus": 8, "n_same_machine": 4},
+    "machine_specs" : {
+        "A100-80G": {"memory_bw": 2048, "flops": 312, "memory_limit": 80, "intra_bw": 64},
+        "A100-40G": {"memory_bw": 1555, "flops": 312, "memory_limit": 40, "intra_bw": 600},
+        "A40": {"memory_bw": 696, "flops": 150, "memory_limit": 48, "intra_bw": 600},
+        "A4000": {"memory_bw": 448, "flops": 153, "memory_limit": 16, "intra_bw": 6000},
+        "A6000": {"memory_bw": 768, "flops": 154.8, "memory_limit": 48, "intra_bw": 2},
+        "H100": {"memory_bw": 2048, "flops": 1513, "memory_limit": 80, "intra_bw": 4},
+        "L40": {"memory_bw": 864, "flops": 181, "memory_limit": 48, "intra_bw": 2}
+
+    },
+    "machine_amounts" : {
+        "H100": {"2": 1},
+        "A6000": {"4": 1},
+        "A100-80G": {"6":1},
+        "L40": {"8":1}
+    }
+}

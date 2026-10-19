@@ -1,0 +1,3 @@
+[submodule "benchmark/distserve_documents/DistServe"]
+	path = benchmark/distserve_documents/DistServe
+	url = https://github.com/LLMServe/DistServe.git
