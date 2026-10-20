@@ -42,6 +42,13 @@ class Service:
         # compute stream: a device-wide sync would wait for the next blocked recv.
         self.send_credit=threading.Semaphore(2);self.outbox=queue.Queue(maxsize=1);self.inbox=queue.Queue(maxsize=1);self.credit=threading.Semaphore(2)
         self.feedback=queue.Queue();self.threads=[];self.errors=[];self.ready=False;self.stopping=False
+        self.host_staging_cache=None;self.host_staging_first=None
+        if args.phase=='prefill' and args.kv_transport=='gloo':
+            # One sender owns and reuses this workspace. Avoid CUDA host-memory
+            # registration while another request has active pipeline kernels.
+            elements=(model.stop-model.start)*args.max_batch*model.hf.max_position_embeddings*2*model.hf.num_key_value_heads*(model.hf.hidden_size//model.hf.num_attention_heads)
+            self.host_staging_cache=torch.empty(elements,dtype=torch.float16,pin_memory=True)
+            self.host_staging_first=torch.empty(args.max_batch,dtype=torch.int64,pin_memory=True)
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
         libraries=mapped_libraries()
@@ -128,9 +135,18 @@ class Service:
                 if self.args.kv_transport=='gloo':
                     # Retain GPU sources through the asynchronous copies. Network
                     # transport receives only exact, initialized FP16 CPU bytes.
-                    payload={key:torch.empty_like(tensor,device='cpu',pin_memory=True) for key,tensor in tensors.items()}
-                    for key,tensor in tensors.items():payload[key].copy_(tensor,non_blocking=True)
+                    payload={};offset=0
+                    for key,tensor in tensors.items():
+                        if tensor.dtype==torch.float16:
+                            end=offset+tensor.numel()
+                            if end>self.host_staging_cache.numel():raise ValueError('CPU staging capacity exceeded')
+                            host=self.host_staging_cache[offset:end].view(tensor.shape);offset=end
+                        elif key=='first' and tensor.dtype==torch.int64:
+                            host=self.host_staging_first[:tensor.numel()].view(tensor.shape)
+                        else:raise ValueError('Unexpected cache staging dtype')
+                        host.copy_(tensor,non_blocking=True);payload[key]=host
                     stream.synchronize();staging_ms=(stamp()['monotonic_ns']-started['monotonic_ns'])/1e6
+                    tensors=None;item=None
                 size=send_packet(payload,meta,self.peer,group=self.cross)
                 if epoch is not None:self.release_transfer_epoch(epoch)
                 stream.synchronize()
@@ -352,6 +368,7 @@ def main():
     identities=[None]*4;dist.all_gather_object(identities,identity,group=final)
     if any(i['method']!=args.method or i['config']!=identity['config'] or i['origin']!=identity['origin'] for i in identities):raise ValueError('Worker model/method identity mismatch')
     args.output=Path(args.output);service=Service(args,model,pairs[rank//2],controls[rank//2],links[rank%2],readiness[rank%2],ordering)
+    dist.barrier(group=final) # Finish all host/GPU workspace allocation before serving.
     service.journal.write('worker_identity_handshake',identities=identities)
     server=None
     if rank%2==0:
