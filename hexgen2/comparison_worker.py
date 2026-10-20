@@ -315,7 +315,7 @@ def main():
     readiness=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,2],[1,3]]]
     ordering=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
     final=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
-    model=NativeStage(args.model_dir,rank%2,args.method,args.baseline_root)
+    model=NativeStage(args.model_dir,rank%2,args.method,args.baseline_root,max_batch=args.max_batch)
     identity={'rank':rank,'method':args.method,'stage':rank%2,'config':digest(Path(args.model_dir)/'config.json'),'origin':digest(Path(args.model_dir)/'verified-source.json')}
     identities=[None]*4;dist.all_gather_object(identities,identity,group=final)
     if any(i['method']!=args.method or i['config']!=identity['config'] or i['origin']!=identity['origin'] for i in identities):raise ValueError('Worker model/method identity mismatch')

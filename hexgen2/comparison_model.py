@@ -30,7 +30,7 @@ class State:
     lengths_per_sample:object=None
 
 class NativeStage(nn.Module):
-    def __init__(self,model_dir,stage,system,baseline_root=None):
+    def __init__(self,model_dir,stage,system,baseline_root=None,max_batch=1):
         super().__init__()
         self.directory=Path(model_dir);self.stage=stage;self.audit_directory=None;self.audit_context=None;self.audit_sequence=0
         self.hf=LlamaConfig.from_pretrained(model_dir,local_files_only=True)
@@ -69,6 +69,9 @@ class NativeStage(nn.Module):
             self.norm.load_state_dict(load_file(str(self.directory/'norm.safetensors')),strict=True)
             self.head=nn.Linear(self.hf.hidden_size,self.hf.vocab_size,bias=False,device='cuda',dtype=torch.float16)
             self.head.load_state_dict(load_file(str(self.directory/'head.safetensors')),strict=True)
+        # Allocate pinned output storage before serving. Per-token pageable
+        # token.cpu() copies can synchronize unrelated CUDA communication.
+        self.output_buffer=torch.empty(max_batch*self.hf.max_position_embeddings,dtype=torch.int64,pin_memory=True)
         self.eval();gc.collect();torch.cuda.empty_cache()
         self.source={'system':system,'block_module':str(Path(gpt.__file__)),
                      'block_module_sha256':digest(gpt.__file__),'layers':list(range(self.start,self.stop)),
@@ -113,14 +116,17 @@ class NativeStage(nn.Module):
 
     @torch.inference_mode()
     def decode(self,first,state,count,pair,head_rank,tail_rank,callback=None):
-        token=first;tokens=[token.cpu().tolist()]
+        token=first;tokens=[token]
         if callback:callback(token)
         for _ in range(count-1):
             token,_=self.step(token[:,None],state,pair,head_rank,tail_rank)
             state.sequence_len_offset+=1
-            tokens.append(token.cpu().tolist())
+            tokens.append(token)
             if callback:callback(token)
-        return torch.tensor(tokens,dtype=torch.long).T.tolist()
+        output=self.output_buffer[:first.numel()*count].view(first.numel(),count)
+        output.copy_(torch.stack(tokens,dim=1),non_blocking=True)
+        torch.cuda.current_stream().synchronize()
+        return output.tolist()
 
     def restore(self,tensors,prompt_length,count):
         # Received storage belongs to the transport CUDA stream. Its copies and
