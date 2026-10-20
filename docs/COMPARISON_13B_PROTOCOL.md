@@ -36,6 +36,12 @@ DistServe is excluded.
   Compute-stream synchronization allows reception during decoding without waiting
   for a subsequent unfulfilled receive. Qualify concurrency, shutdown, numerical
   correctness and memory separately before accepting this configuration.
+  A CPU Gloo readiness/acknowledgment exchange precedes each NCCL cache packet,
+  so an idle receiver does not leave a GPU kernel waiting for a future request.
+  Both methods use `CUDA_MODULE_LOADING=EAGER`: a queued qualification exposed
+  FlashAttention module loading blocked behind an idle NCCL receive. Native
+  thread stacks, the aborted diagnostic and its replacement runs are retained.
+  See NVIDIA's [lazy-loading guidance](https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/lazy-loading.html).
 - Azure Conversation trace commit
   `790921015d50dd6aae7f7e47f39ba0e235ad6b08`, CSV SHA-256
   `2f1e5b666d4e3055fdbba98598ce2ec307767b9064e03e2fa46676dbcc7d0bf8`.

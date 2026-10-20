@@ -26,11 +26,12 @@ class Journal:
         with self.lock,self.path.open('a') as f:f.write(json.dumps({'event':event,**data,**stamp()},allow_nan=False)+'\n');f.flush()
 
 class Service:
-    def __init__(self,args,model,pair,control,cross):
+    def __init__(self,args,model,pair,control,cross,readiness):
         self.args,self.model,self.pair,self.control,self.cross=args,model,pair,control,cross
         self.rank=int(os.environ['RANK']);self.head=self.rank%2==0;self.group=self.rank//2
         self.head_rank=self.group*2;self.tail_rank=self.head_rank+1
         self.peer=self.rank+2 if self.group==0 else self.rank-2
+        self.readiness=readiness
         self.output=args.output;self.journal=Journal(args.output/f'rank-{self.rank}-events.jsonl')
         self.jobs=queue.Queue();self.pending={};self.pending_lock=threading.Lock();self.stash=collections.deque()
         # One active decode plus one prefetched prefix. Synchronize only the
@@ -39,7 +40,17 @@ class Service:
         self.feedback=queue.Queue();self.threads=[];self.errors=[];self.ready=False;self.stopping=False
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
-        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability()},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend()},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+
+    def exchange_ready(self,sending):
+        # Never leave an idle NCCL receive kernel spinning on the GPU. CUDA
+        # module loading/allocation may require context synchronization.
+        token=torch.ones(1,dtype=torch.int64)
+        if sending:
+            dist.send(token,dst=self.peer,group=self.readiness);dist.recv(token,src=self.peer,group=self.readiness)
+        else:
+            dist.recv(token,src=self.peer,group=self.readiness);dist.send(token,dst=self.peer,group=self.readiness)
+        if token.item()!=1:raise ValueError('Invalid cache readiness handshake')
 
     def thread(self,name,fn):
         def guarded():
@@ -56,12 +67,13 @@ class Service:
         with torch.cuda.stream(stream):
             while True:
                 item=self.outbox.get()
+                waiting=stamp();self.exchange_ready(True);started=stamp()
                 if item is None:
                     send_packet({}, {'stop':True}, self.peer,group=self.cross);return
                 tensors,meta,event=item;stream.wait_event(event)
                 if self.args.audit:meta['sender_payload_sha256']=fingerprints(tensors)
-                started=stamp();size=send_packet(tensors,meta,self.peer,group=self.cross);stream.synchronize()
-                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,payload_sha256=meta.get('sender_payload_sha256'))
+                size=send_packet(tensors,meta,self.peer,group=self.cross);stream.synchronize()
+                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,readiness_wait_ms=(started['monotonic_ns']-waiting['monotonic_ns'])/1e6,payload_sha256=meta.get('sender_payload_sha256'))
                 del tensors,item;self.send_credit.release();self.outbox.task_done()
 
     def receiver(self):
@@ -69,7 +81,8 @@ class Service:
         with torch.cuda.stream(stream):
             while True:
                 self.credit.acquire()
-                started=stamp();tensors,meta=recv_packet(self.peer,group=self.cross);stream.synchronize()
+                waiting=stamp();self.exchange_ready(False);started=stamp()
+                tensors,meta=recv_packet(self.peer,group=self.cross);stream.synchronize()
                 if meta.get('stop'):
                     self.inbox.put(None);return
                 if self.args.audit:
@@ -78,7 +91,7 @@ class Service:
                     self.journal.write('kv_fingerprints_verified',rank=self.rank,ids=meta['ids'],payload_sha256=actual)
                 event=torch.cuda.Event();event.record(stream)
                 size=sum(t.numel()*t.element_size() for t in tensors.values())
-                meta['receiver']={'rank':self.rank,'started':started,'completed':stamp(),'payload_bytes':size}
+                meta['receiver']={'rank':self.rank,'started':started,'completed':stamp(),'payload_bytes':size,'readiness_wait_ms':(started['monotonic_ns']-waiting['monotonic_ns'])/1e6}
                 self.journal.write('kv_receive_complete',**meta['receiver'],ids=meta['ids'])
                 self.inbox.put((tensors,meta,event))
 
@@ -120,6 +133,7 @@ class Service:
         started=stamp()
         def callback(token):
             torch.cuda.current_stream().synchronize();token_stamps.append(stamp())
+            if len(token_stamps)%32==0:self.journal.write('decode_progress',rank=self.rank,ids=ids,tokens_observed=len(token_stamps))
         if tensors is None:
             inputs=torch.tensor(meta['input_ids'],device='cuda',dtype=torch.long)
             first,state,logits=self.model.prefill(inputs,count,self.pair,self.head_rank,self.tail_rank)
@@ -240,12 +254,13 @@ def main():
     controls=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,1],[2,3]]]
     pairs=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='pipeline-'+str(i)) for i,r in enumerate([[0,1],[2,3]])]
     links=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='cache-'+str(i)) for i,r in enumerate([[0,2],[1,3]])]
+    readiness=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,2],[1,3]]]
     final=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
     model=NativeStage(args.model_dir,rank%2,args.method,args.baseline_root)
     identity={'rank':rank,'method':args.method,'stage':rank%2,'config':digest(Path(args.model_dir)/'config.json'),'origin':digest(Path(args.model_dir)/'verified-source.json')}
     identities=[None]*4;dist.all_gather_object(identities,identity,group=final)
     if any(i['method']!=args.method or i['config']!=identity['config'] or i['origin']!=identity['origin'] for i in identities):raise ValueError('Worker model/method identity mismatch')
-    args.output=Path(args.output);service=Service(args,model,pairs[rank//2],controls[rank//2],links[rank%2])
+    args.output=Path(args.output);service=Service(args,model,pairs[rank//2],controls[rank//2],links[rank%2],readiness[rank%2])
     service.journal.write('worker_identity_handshake',identities=identities)
     server=None
     if rank%2==0:
