@@ -131,8 +131,9 @@ class NativeStage(nn.Module):
     def restore(self,tensors,prompt_length,count):
         # Received storage belongs to the transport CUDA stream. Its copies and
         # first-token reads on the compute stream must finish before reuse.
-        for tensor in tensors.values():tensor.record_stream(torch.cuda.current_stream())
-        first=tensors.pop('first');state=State(prompt_length+count,first.numel(),sequence_len_offset=prompt_length)
+        for tensor in tensors.values():
+            if tensor.is_cuda:tensor.record_stream(torch.cuda.current_stream())
+        first=tensors.pop('first').to(device='cuda');state=State(prompt_length+count,first.numel(),sequence_len_offset=prompt_length)
         expected=set(map(str,range(self.start,self.stop)))
         if set(tensors)!=expected:raise ValueError('Transferred cache layer ownership mismatch')
         for key in sorted(tensors,key=int):

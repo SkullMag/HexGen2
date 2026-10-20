@@ -41,41 +41,40 @@ DistServe is excluded.
   Compute-stream synchronization allows reception during decoding without waiting
   for a subsequent unfulfilled receive. Qualify concurrency, shutdown, numerical
   correctness and memory separately before accepting this configuration.
-  A CPU Gloo readiness/acknowledgment exchange precedes each NCCL cache packet,
-  so an idle receiver does not leave a GPU kernel waiting for a future request.
-  Application KV buffers remain CUDA tensors. NCCL may internally use host
-  staging for its socket/SHM paths; record the actual transport and do not claim
-  GPUDirect or all-PCIe transfer from this interface alone. The pinned dynamic NCCL runtime is 2.26.5
-  with `NCCL_LAUNCH_ORDER_IMPLICIT=1` and `NCCL_LAUNCH_RACE_FATAL=1`. Record the
-  actual loaded library path/hash and runtime version, independently of pip's
-  installed Torch dependency metadata. A global CPU launch fence parks all
-  model owners at completed steps, then enqueues the entire cache epoch on all
-  four ranks before any rank can issue its next pipeline operation. The fence
-  releases after enqueue, separately from GPU transfer completion, preserving
-  the opportunity for overlap. Decode stages collectively check for a pending
-  epoch at token boundaries and while idle; a per-rank flag alone is unsafe.
-  Both methods perform the same per-token CPU control collective. Retain fence
-  events, wait times and a queued maximum-context overlap qualification.
-  An NCCL upgrade alone is insufficient: the explicit host-order handoff is
-  required by NVIDIA's [multi-communicator ordering contract](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/communicators.html#using-multiple-nccl-communicators-concurrently).
-  Both methods explicitly use `CUDA_MODULE_LOADING=LAZY`. A queued qualification
-  exposed FlashAttention module loading blocked behind an idle NCCL receive;
-  the CPU readiness exchange removes that idle GPU receive. An eager-loading
-  diagnostic resolved the stall but exceeded T4 memory at maximum context, so
-  it is excluded from measurement. Native stacks and both failed diagnostics
-  are retained. Maximum-context warmups precede measured windows.
-  Prefill-only caches reserve prompt positions only; decode workers reserve the
-  required output positions after restoration. Received tensors record their
-  use on the compute stream before transport-stream storage can be reused.
-  Token history stays on the GPU until generation finishes. A preallocated pinned
-  CPU buffer receives one nonblocking output copy on the compute stream, followed
-  by synchronization of that stream. The earlier per-token pageable `.cpu()`
-  output copies blocked in device-to-host CUDA calls during a qualified local
-  cache-overlap diagnostic; preserve that failed gate and its native profiles.
-  Requalify both numerical correctness and actual decode progress during cache
-  reception after this common output-path change; do not infer overlap from
-  stream names or host enqueue times alone.
-  See NVIDIA's [lazy-loading guidance](https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/lazy-loading.html).
+  The primary local campaign explicitly selects `--kv-transport gloo`: initialized
+  FP16 cache tensors are copied into pinned CPU buffers by the prefill transport
+  owner, sent losslessly over Gloo TCP, and restored to the GPU by the decode
+  compute owner. Reception uses CPU memory independently of model NCCL traffic.
+  Model attention/MLP/block computation remains native FP16 CUDA. GPU-to-host
+  staging, TCP transfer, and host-to-GPU restoration are included in measured
+  performance. Calibration transfer costs include staging; decode service costs
+  include restoration. Retain these times separately. This material runtime
+  adaptation does not reproduce the paper's optimized GPU cache-transfer path.
+  Both cache paths stay within UTAH; one crosses local VMs and one stays in the
+  same VM. NCCL link probes describe hardware/pipeline paths, while actual Gloo
+  cache packets are qualified and calibrated separately. Do not claim GPUDirect,
+  NVLink or all-PCIe bandwidth from same-site placement.
+  Both methods use pinned dynamic NCCL 2.26.5 for model pipelines. Record its
+  loaded library hash and native runtime API version independently of pip
+  metadata and Torch's build-time version. Both methods perform the same
+  per-token CPU control collective and use `CUDA_MODULE_LOADING=LAZY`.
+  Maximum-context warmups precede measurement. Prefill caches reserve prompt
+  positions; decode caches reserve prompt plus output positions.
+  The optional `--kv-transport nccl` diagnostic retains the global CPU launch
+  fence and implicit-order guards. Local 13B numerical/hash/memory checks passed,
+  but sustained decode progress during complete cache reception did not. An
+  isolated pinned-output change did not satisfy that overlap gate either. Keep
+  these failed qualifications and native profiles separate from primary cells.
+  NVIDIA's [communicator guidance](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/communicators.html#using-multiple-nccl-communicators-concurrently)
+  explains ordering requirements and does not establish useful overlap here.
+  Token history stays on the GPU until generation finishes. One nonblocking
+  output copy uses a preallocated pinned CPU buffer and synchronizes only the
+  compute stream. This path is common to both arms. Earlier eager-loading,
+  memory, and transport diagnostics are retained and supply no primary points.
+  Require exact greedy outputs, recorded logit tolerance, initialized-prefix
+  SHA checks, four queued maximum-context requests, clean shutdown, and at least
+  two computed decode-token completions during another request's CPU cache
+  reception in each role orientation before timing.
 - Azure Conversation trace commit
   `790921015d50dd6aae7f7e47f39ba0e235ad6b08`, CSV SHA-256
   `2f1e5b666d4e3055fdbba98598ce2ec307767b9064e03e2fa46676dbcc7d0bf8`.

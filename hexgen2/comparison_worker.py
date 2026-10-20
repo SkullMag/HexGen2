@@ -45,7 +45,7 @@ class Service:
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
         libraries=mapped_libraries()
-        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend(),'nccl_runtime':list(runtime_version()),'nccl_torch_build':list(torch.cuda.nccl.version()),'nccl_libraries':[{'path':p,'sha256':digest(p)} for p in libraries],'launch_order_implicit':os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT'),'launch_race_fatal':os.environ.get('NCCL_LAUNCH_RACE_FATAL'),'cache_staging':'gpu'},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend(),'nccl_runtime':list(runtime_version()),'nccl_torch_build':list(torch.cuda.nccl.version()),'nccl_libraries':[{'path':p,'sha256':digest(p)} for p in libraries],'launch_order_implicit':os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT'),'launch_race_fatal':os.environ.get('NCCL_LAUNCH_RACE_FATAL'),'cache_transport':dist.get_backend(self.cross),'cache_staging':'cpu' if args.kv_transport=='gloo' else 'gpu'},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
 
     def park_compute(self,epoch):
         started=stamp();torch.cuda.current_stream().synchronize()
@@ -114,18 +114,46 @@ class Service:
         with torch.cuda.stream(stream):
             while True:
                 item=self.outbox.get()
-                waiting=stamp();self.exchange_ready(True);epoch=self.begin_transfer_epoch();started=stamp()
+                waiting=stamp();self.exchange_ready(True)
+                epoch=self.begin_transfer_epoch() if self.args.kv_transport=='nccl' else None
+                started=stamp()
                 if item is None:
                     send_packet({}, {'stop':True}, self.peer,group=self.cross)
-                    self.release_transfer_epoch(epoch);stream.synchronize();return
+                    if epoch is not None:self.release_transfer_epoch(epoch)
+                    stream.synchronize();return
                 tensors,meta,event=item;stream.wait_event(event)
                 if self.args.audit:meta['sender_payload_sha256']=fingerprints(tensors)
-                size=send_packet(tensors,meta,self.peer,group=self.cross)
-                self.release_transfer_epoch(epoch);stream.synchronize()
-                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,readiness_wait_ms=(started['monotonic_ns']-waiting['monotonic_ns'])/1e6,payload_sha256=meta.get('sender_payload_sha256'))
+                payload=tensors
+                staging_ms=0.
+                if self.args.kv_transport=='gloo':
+                    # Retain GPU sources through the asynchronous copies. Network
+                    # transport receives only exact, initialized FP16 CPU bytes.
+                    payload={key:torch.empty_like(tensor,device='cpu',pin_memory=True) for key,tensor in tensors.items()}
+                    for key,tensor in tensors.items():payload[key].copy_(tensor,non_blocking=True)
+                    stream.synchronize();staging_ms=(stamp()['monotonic_ns']-started['monotonic_ns'])/1e6
+                size=send_packet(payload,meta,self.peer,group=self.cross)
+                if epoch is not None:self.release_transfer_epoch(epoch)
+                stream.synchronize()
+                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,readiness_wait_ms=(started['monotonic_ns']-waiting['monotonic_ns'])/1e6,payload_sha256=meta.get('sender_payload_sha256'),backend=self.args.kv_transport,staging_ms=staging_ms)
+                del payload
                 del tensors,item;self.send_credit.release();self.outbox.task_done()
 
     def receiver(self):
+        if self.args.kv_transport=='gloo':
+            while True:
+                self.credit.acquire()
+                waiting=stamp();self.exchange_ready(False);started=stamp()
+                tensors,meta=recv_packet(self.peer,group=self.cross)
+                if meta.get('stop'):self.inbox.put(None);return
+                if self.args.audit:
+                    actual=fingerprints(tensors)
+                    if actual!=meta.get('sender_payload_sha256'):raise ValueError('KV transfer SHA256 mismatch')
+                    self.journal.write('kv_fingerprints_verified',rank=self.rank,ids=meta['ids'],payload_sha256=actual)
+                size=sum(t.numel()*t.element_size() for t in tensors.values())
+                meta['receiver']={'rank':self.rank,'started':started,'completed':stamp(),'payload_bytes':size,'readiness_wait_ms':(started['monotonic_ns']-waiting['monotonic_ns'])/1e6,'backend':'gloo','staging':'cpu'}
+                self.journal.write('kv_receive_complete',**meta['receiver'],ids=meta['ids'])
+                self.inbox.put((tensors,meta,None))
+            return
         stream=torch.cuda.Stream()
         with torch.cuda.stream(stream):
             while True:
@@ -180,7 +208,7 @@ class Service:
         torch.cuda.reset_peak_memory_stats();calls=dict(fa_adapter.CALLS);queued=stamp();token_stamps=[]
         self.model.audit_context={'ids':ids,'input_tokens':length}
         if tensors is None and self.args.phase=='prefill':self.send_credit.acquire()
-        started=stamp()
+        started=stamp();restore_ms=0.
         def callback(token):
             torch.cuda.current_stream().synchronize();token_stamps.append(stamp())
             if len(token_stamps)%32==0:self.journal.write('decode_progress',rank=self.rank,ids=ids,tokens_observed=len(token_stamps))
@@ -198,17 +226,19 @@ class Service:
                 del state,inputs,logits
                 self.outbox.put((live,transferred,event))
                 self.journal.write('prefill_complete',ids=ids,batch=batch,input_tokens=length,output_tokens=count,peak_allocated_bytes=torch.cuda.max_memory_allocated(),attention_calls={k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()},**transferred['prefill'])
-                self.park_compute(self.compute_epoch+1)
+                if self.args.kv_transport=='nccl':self.park_compute(self.compute_epoch+1)
                 return
         else:
-            torch.cuda.current_stream().wait_event(event)
-            first,state=self.model.restore(tensors,length,count);del tensors
+            if event is not None:torch.cuda.current_stream().wait_event(event)
+            restoring=stamp();first,state=self.model.restore(tensors,length,count);del tensors
+            torch.cuda.current_stream().synchronize()
+            restore_ms=(stamp()['monotonic_ns']-restoring['monotonic_ns'])/1e6
             prefill_end=None
         tokens=self.model.decode(first,state,count,self.pair,self.head_rank,self.tail_rank,callback)
         torch.cuda.current_stream().synchronize();ended=stamp()
         details={'rank':self.rank,'group':self.group,'batch':batch,'started':started,'ended':ended,
             'clock_domain':self.clock_domain,
-            'duration_ms':(ended['monotonic_ns']-started['monotonic_ns'])/1e6,'token_observations':token_stamps,
+            'duration_ms':(ended['monotonic_ns']-started['monotonic_ns'])/1e6,'cache_restore_ms':restore_ms,'token_observations':token_stamps,
             'peak_allocated_bytes':torch.cuda.max_memory_allocated(),'attention_calls':{k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()}}
         self.journal.write('generation_complete',ids=ids,token_ids=tokens,**details)
         if self.head:
@@ -247,7 +277,8 @@ class Service:
                 del item,tensors
             else:self.infer(meta)
         if self.args.phase=='prefill':
-            self.outbox.put(None);self.park_compute(self.compute_epoch+1)
+            self.outbox.put(None)
+            if self.args.kv_transport=='nccl':self.park_compute(self.compute_epoch+1)
         for t in self.threads:
             if t.name=='completion_feedback':self.feedback.join();self.feedback.put(None)
             t.join(timeout=90)
@@ -298,6 +329,7 @@ class Service:
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--audit',action='store_true');p.add_argument('--model-dir',required=True);p.add_argument('--baseline-root',required=True)
+    p.add_argument('--kv-transport',choices=['nccl','gloo'],default='nccl')
     p.add_argument('--method',choices=['hexgen','hexgen2'],required=True);p.add_argument('--phase',choices=['all','prefill','decode'],required=True)
     p.add_argument('--bind',required=True);p.add_argument('--port',type=int,default=8120);p.add_argument('--max-batch',type=int,default=2)
     p.add_argument('--batch-wait-ms',type=float,default=10);p.add_argument('--max-pending',type=int,default=512);p.add_argument('--request-timeout',type=float,default=1800)
@@ -311,7 +343,7 @@ def main():
     dist.init_process_group('nccl',timeout=timedelta(seconds=1800))
     controls=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,1],[2,3]]]
     pairs=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='pipeline-'+str(i)) for i,r in enumerate([[0,1],[2,3]])]
-    links=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='cache-'+str(i)) for i,r in enumerate([[0,2],[1,3]])]
+    links=[dist.new_group(r,backend=args.kv_transport,timeout=timedelta(seconds=1800),group_desc='cache-'+str(i)) for i,r in enumerate([[0,2],[1,3]])]
     readiness=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,2],[1,3]]]
     ordering=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
     final=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))

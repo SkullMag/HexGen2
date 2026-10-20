@@ -17,6 +17,7 @@ def main():
     p.add_argument('--master',default='10.94.10.2');p.add_argument('--master-port',type=int,required=True)
     p.add_argument('--interface',required=True);p.add_argument('--model-dir',required=True);p.add_argument('--baseline-root',default='artifacts/hexgen1')
     p.add_argument('--max-batch',type=int,default=1);p.add_argument('--port',type=int,default=8120)
+    p.add_argument('--kv-transport',choices=['nccl','gloo'],default='nccl')
     p.add_argument('--rank-map',type=Path)
     p.add_argument('--output',type=Path);p.add_argument('--audit',action='store_true');a=p.parse_args()
     if not a.interface.strip():p.error('An explicit nonempty data-plane interface is required')
@@ -35,7 +36,7 @@ def main():
                 CUDA_MODULE_LOADING='LAZY',NCCL_LAUNCH_ORDER_IMPLICIT='1',NCCL_LAUNCH_RACE_FATAL='1',GLOO_SOCKET_IFNAME=a.interface,NCCL_SOCKET_IFNAME=a.interface,NCCL_IB_DISABLE='1',NCCL_DEBUG='INFO',NCCL_DEBUG_FILE=str(output/f'rank-{rank}-nccl-%p.log'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
             phase='all' if a.method=='hexgen' else ('prefill' if rank//2==a.prefill_group else 'decode')
             command=[sys.executable,'-u','-m','hexgen2.comparison_worker','--method',a.method,'--phase',phase,'--bind',bind,'--port',str(a.port),
-                '--model-dir',a.model_dir,'--baseline-root',a.baseline_root,'--max-batch',str(a.max_batch),'--output',str(output)]
+                '--model-dir',a.model_dir,'--baseline-root',a.baseline_root,'--max-batch',str(a.max_batch),'--kv-transport',a.kv_transport,'--output',str(output)]
             if a.audit:command.append('--audit')
             if a.task=='linkprobe':command=[sys.executable,'-u','-m','hexgen2.comparison_linkprobe','--output',str(output)]
             out=(output/f'rank-{rank}-stdout.log').open('wb');err=(output/f'rank-{rank}-stderr.log').open('wb');logs.extend([out,err])
