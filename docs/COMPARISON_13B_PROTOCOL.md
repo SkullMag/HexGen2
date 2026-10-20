@@ -11,8 +11,13 @@ DistServe is excluded.
   `b6d7fde8392250730d24cc2fcfa3b7e5f9a03ce8`, FP16, greedy decoding, exact output
   counts, no early EOS termination and no prefix caching. All source weights and
   losslessly converted per-layer weights are hashed.
-- Fleet: exactly two A30s, one VM each on CERN-w3 and CERN-w6, and two T4s in one
-  VM on UTAH-w5. Both methods use the same reservation and private FABRIC network.
+- Fleet: one RTX 6000 on UTAH-w2, one T4 on UTAH-w4 and two T4s in one VM on
+  UTAH-w5. Both methods use the same four GPUs and private same-site L2 network.
+  Ranks 0/2 are the model heads on w2/w4; ranks 1/3 are the tails on the two
+  distinct w5 GPUs. Thus one KV path stays inside w5 and the other stays within
+  UTAH. Capture the actual NCCL path and bandwidth; same-site placement does not
+  imply PCIe or NVLink bandwidth. The earlier CERN–UTAH allocation is released;
+  its WAN and runtime diagnostics are retained separately from figure cells.
   The allocated VM capacities, GPU UUIDs, placement, clocks and network paths are
   captured, including the requested versus allocated disk difference.
 - Both complete model groups use TP=1, PP=2, equal layer counts. The colocated
@@ -38,6 +43,19 @@ DistServe is excluded.
   correctness and memory separately before accepting this configuration.
   A CPU Gloo readiness/acknowledgment exchange precedes each NCCL cache packet,
   so an idle receiver does not leave a GPU kernel waiting for a future request.
+  KV payloads remain GPU-resident. The pinned dynamic NCCL runtime is 2.26.5
+  with `NCCL_LAUNCH_ORDER_IMPLICIT=1` and `NCCL_LAUNCH_RACE_FATAL=1`. Record the
+  actual loaded library path/hash and runtime version, independently of pip's
+  installed Torch dependency metadata. A global CPU launch fence parks all
+  model owners at completed steps, then enqueues the entire cache epoch on all
+  four ranks before any rank can issue its next pipeline operation. The fence
+  releases after enqueue, separately from GPU transfer completion, preserving
+  the opportunity for overlap. Decode stages collectively check for a pending
+  epoch at token boundaries and while idle; a per-rank flag alone is unsafe.
+  Both methods perform the same per-token CPU control collective. Retain fence
+  events, wait times and a queued maximum-context overlap qualification.
+  An NCCL upgrade alone is insufficient: the explicit host-order handoff is
+  required by NVIDIA's [multi-communicator ordering contract](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/usage/communicators.html#using-multiple-nccl-communicators-concurrently).
   Both methods explicitly use `CUDA_MODULE_LOADING=LAZY`. A queued qualification
   exposed FlashAttention module loading blocked behind an idle NCCL receive;
   the CPU readiness exchange removes that idle GPU receive. An eager-loading
@@ -57,7 +75,8 @@ DistServe is excluded.
   with one BOS, and record source row/segment identifiers and bank/tokenizer pins.
 - Heavy input is >512 tokens; heavy output is >128. Figure columns are HPLD,
   HPHD, LPHD, LPLD and Online. One heterogeneous fleet means one figure row.
-- SHA256(Azure row index) modulo 10 selects calibration rows (0) versus held-out
+- The unsigned integer represented by the first eight hex digits of
+  SHA256(decimal zero-based Azure row index), modulo 10, selects calibration rows (0) versus held-out
   rows (1–9). Measured seeds are 20261020, 20261021 and 20261022. Independent
   calibration anchors isolate memory, batching, phase and transfer costs.
 

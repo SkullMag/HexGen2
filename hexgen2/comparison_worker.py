@@ -14,6 +14,7 @@ from .comparison_model import NativeStage
 from .transport import send_packet,recv_packet
 from . import fa_adapter
 from .record import digest
+from .comparison_fence import LaunchFence
 
 
 def fingerprints(tensors):return {k:hashlib.sha256(t.detach().cpu().numpy().tobytes()).hexdigest() for k,t in tensors.items()}
@@ -26,12 +27,13 @@ class Journal:
         with self.lock,self.path.open('a') as f:f.write(json.dumps({'event':event,**data,**stamp()},allow_nan=False)+'\n');f.flush()
 
 class Service:
-    def __init__(self,args,model,pair,control,cross,readiness):
+    def __init__(self,args,model,pair,control,cross,readiness,ordering):
         self.args,self.model,self.pair,self.control,self.cross=args,model,pair,control,cross
         self.rank=int(os.environ['RANK']);self.head=self.rank%2==0;self.group=self.rank//2
         self.head_rank=self.group*2;self.tail_rank=self.head_rank+1
         self.peer=self.rank+2 if self.group==0 else self.rank-2
         self.readiness=readiness
+        self.ordering=ordering;self.fence=LaunchFence();self.compute_epoch=0;self.transfer_epoch=0
         self.output=args.output;self.journal=Journal(args.output/f'rank-{self.rank}-events.jsonl')
         self.jobs=queue.Queue();self.pending={};self.pending_lock=threading.Lock();self.stash=collections.deque()
         # One active decode plus one prefetched prefix. Synchronize only the
@@ -40,7 +42,50 @@ class Service:
         self.feedback=queue.Queue();self.threads=[];self.errors=[];self.ready=False;self.stopping=False
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
-        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend()},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+        libraries=sorted({line.split()[-1] for line in Path('/proc/self/maps').read_text().splitlines() if 'libnccl.so' in line})
+        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend(),'nccl_runtime':list(torch.cuda.nccl.version()),'nccl_libraries':[{'path':p,'sha256':digest(p)} for p in libraries],'launch_order_implicit':os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT'),'launch_race_fatal':os.environ.get('NCCL_LAUNCH_RACE_FATAL'),'cache_staging':'gpu'},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+
+    def park_compute(self,epoch):
+        started=stamp();torch.cuda.current_stream().synchronize()
+        self.fence.park(epoch);self.compute_epoch=epoch
+        self.journal.write('cache_epoch_model_resumed',rank=self.rank,epoch=epoch,started=started)
+
+    def cooperate(self):
+        # Both pipeline stages make the same decision at a completed token
+        # boundary. A local flag alone can strand one stage inside the next
+        # blocking pipeline operation while the other waits for a cache epoch.
+        epoch=torch.tensor([self.fence.pending() if self.args.phase=='decode' else 0],dtype=torch.int64)
+        dist.all_reduce(epoch,op=dist.ReduceOp.MAX,group=self.control)
+        if epoch.item()>self.compute_epoch:self.park_compute(epoch.item())
+
+    def begin_transfer_epoch(self):
+        self.transfer_epoch+=1;epoch=self.transfer_epoch
+        self.fence.request(epoch);self.fence.wait_parked(epoch)
+        # A dedicated Gloo group is used only by the four transport owners.
+        # Every preceding pipeline operation is GPU-complete on all ranks.
+        dist.barrier(group=self.ordering)
+        self.journal.write('cache_epoch_begin',rank=self.rank,epoch=epoch)
+        return epoch
+
+    def release_transfer_epoch(self,epoch):
+        # Every rank has enqueued the complete cache packet before any rank
+        # may enqueue its next pipeline operation. NCCL 2.26+ then preserves
+        # that host launch order across the distinct CUDA streams/communicators.
+        dist.barrier(group=self.ordering)
+        self.journal.write('cache_epoch_enqueued',rank=self.rank,epoch=epoch)
+        self.fence.release(epoch)
+
+    def next_decode(self):
+        sentinel=object();item=sentinel
+        while True:
+            self.cooperate()
+            if item is sentinel:
+                try:item=self.inbox.get_nowait()
+                except queue.Empty:pass
+            available=torch.tensor([int(item is not sentinel)],dtype=torch.int64)
+            dist.all_reduce(available,op=dist.ReduceOp.MIN,group=self.control)
+            if available.item():return item
+            time.sleep(.002)
 
     def exchange_ready(self,sending):
         # Never leave an idle NCCL receive kernel spinning on the GPU. CUDA
@@ -67,12 +112,14 @@ class Service:
         with torch.cuda.stream(stream):
             while True:
                 item=self.outbox.get()
-                waiting=stamp();self.exchange_ready(True);started=stamp()
+                waiting=stamp();self.exchange_ready(True);epoch=self.begin_transfer_epoch();started=stamp()
                 if item is None:
-                    send_packet({}, {'stop':True}, self.peer,group=self.cross);return
+                    send_packet({}, {'stop':True}, self.peer,group=self.cross)
+                    self.release_transfer_epoch(epoch);stream.synchronize();return
                 tensors,meta,event=item;stream.wait_event(event)
                 if self.args.audit:meta['sender_payload_sha256']=fingerprints(tensors)
-                size=send_packet(tensors,meta,self.peer,group=self.cross);stream.synchronize()
+                size=send_packet(tensors,meta,self.peer,group=self.cross)
+                self.release_transfer_epoch(epoch);stream.synchronize()
                 self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,readiness_wait_ms=(started['monotonic_ns']-waiting['monotonic_ns'])/1e6,payload_sha256=meta.get('sender_payload_sha256'))
                 del tensors,item;self.send_credit.release();self.outbox.task_done()
 
@@ -81,8 +128,9 @@ class Service:
         with torch.cuda.stream(stream):
             while True:
                 self.credit.acquire()
-                waiting=stamp();self.exchange_ready(False);started=stamp()
-                tensors,meta=recv_packet(self.peer,group=self.cross);stream.synchronize()
+                waiting=stamp();self.exchange_ready(False);epoch=self.begin_transfer_epoch();started=stamp()
+                tensors,meta=recv_packet(self.peer,group=self.cross)
+                self.release_transfer_epoch(epoch);stream.synchronize()
                 if meta.get('stop'):
                     self.inbox.put(None);return
                 if self.args.audit:
@@ -134,6 +182,9 @@ class Service:
         def callback(token):
             torch.cuda.current_stream().synchronize();token_stamps.append(stamp())
             if len(token_stamps)%32==0:self.journal.write('decode_progress',rank=self.rank,ids=ids,tokens_observed=len(token_stamps))
+            # Deliver an already-computed final token before admitting the
+            # next cache epoch; the idle loop will perform the next handoff.
+            if len(token_stamps)<count:self.cooperate()
         if tensors is None:
             inputs=torch.tensor(meta['input_ids'],device='cuda',dtype=torch.long)
             first,state,logits=self.model.prefill(inputs,count,self.pair,self.head_rank,self.tail_rank,prefill_only=self.args.phase=='prefill')
@@ -145,6 +196,7 @@ class Service:
                 del state,inputs,logits
                 self.outbox.put((live,transferred,event))
                 self.journal.write('prefill_complete',ids=ids,batch=batch,input_tokens=length,output_tokens=count,peak_allocated_bytes=torch.cuda.max_memory_allocated(),attention_calls={k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()},**transferred['prefill'])
+                self.park_compute(self.compute_epoch+1)
                 return
         else:
             torch.cuda.current_stream().wait_event(event)
@@ -173,9 +225,10 @@ class Service:
         self.ready=True;self.journal.write('ready',rank=self.rank,phase=self.args.phase)
         while True:
             item=None
+            if self.args.phase=='decode':item=self.next_decode()
             if self.head:
                 if self.args.phase=='decode':
-                    item=self.inbox.get();meta=None if item is None else {k:v for k,v in item[1].items() if k!='input_ids'}
+                    meta=None if item is None else {k:v for k,v in item[1].items() if k!='input_ids'}
                 else:
                     batch=self.take_batch()
                     meta=None if batch is None else {'ids':[r['id'] for r in batch],'input_ids':[r['input_ids'] for r in batch],
@@ -185,13 +238,13 @@ class Service:
             objects=[meta];dist.broadcast_object_list(objects,src=self.head_rank,group=self.control);meta=objects[0]
             if meta is None:break
             if self.args.phase=='decode':
-                if not self.head:item=self.inbox.get()
                 if item is None or item[1]['ids']!=meta['ids']:raise ValueError('Stage request/cache correlation failed')
                 tensors,local_meta,event=item
                 self.infer(local_meta,tensors,event)
                 del item,tensors
             else:self.infer(meta)
-        if self.args.phase=='prefill':self.outbox.put(None)
+        if self.args.phase=='prefill':
+            self.outbox.put(None);self.park_compute(self.compute_epoch+1)
         for t in self.threads:
             if t.name=='completion_feedback':self.feedback.join();self.feedback.put(None)
             t.join(timeout=90)
@@ -249,18 +302,21 @@ def main():
     # JSON event arguments remain portable string values.
     args.output=str(args.output)
     rank=int(os.environ['RANK']);device=int(os.environ['LOCAL_RANK']);torch.cuda.set_device(device);torch.set_num_threads(1)
+    if torch.cuda.nccl.version()<(2,26,0) or os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT')!='1':
+        raise RuntimeError('Ordered comparison requires NCCL >=2.26 and NCCL_LAUNCH_ORDER_IMPLICIT=1')
     torch.manual_seed(123);torch.cuda.manual_seed_all(123);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
     dist.init_process_group('nccl',timeout=timedelta(seconds=1800))
     controls=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,1],[2,3]]]
     pairs=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='pipeline-'+str(i)) for i,r in enumerate([[0,1],[2,3]])]
     links=[dist.new_group(r,timeout=timedelta(seconds=1800),group_desc='cache-'+str(i)) for i,r in enumerate([[0,2],[1,3]])]
     readiness=[dist.new_group(r,backend='gloo',timeout=timedelta(seconds=1800)) for r in [[0,2],[1,3]]]
+    ordering=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
     final=dist.new_group([0,1,2,3],backend='gloo',timeout=timedelta(seconds=1800))
     model=NativeStage(args.model_dir,rank%2,args.method,args.baseline_root)
     identity={'rank':rank,'method':args.method,'stage':rank%2,'config':digest(Path(args.model_dir)/'config.json'),'origin':digest(Path(args.model_dir)/'verified-source.json')}
     identities=[None]*4;dist.all_gather_object(identities,identity,group=final)
     if any(i['method']!=args.method or i['config']!=identity['config'] or i['origin']!=identity['origin'] for i in identities):raise ValueError('Worker model/method identity mismatch')
-    args.output=Path(args.output);service=Service(args,model,pairs[rank//2],controls[rank//2],links[rank%2],readiness[rank%2])
+    args.output=Path(args.output);service=Service(args,model,pairs[rank//2],controls[rank//2],links[rank%2],readiness[rank%2],ordering)
     service.journal.write('worker_identity_handshake',identities=identities)
     server=None
     if rank%2==0:
