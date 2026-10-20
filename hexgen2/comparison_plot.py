@@ -31,7 +31,7 @@ def plot(plan_path,trials,output):
         ax.set_ylim(bottom=0);ax.set_xticks([]);ax.set_xlabel(workload);ax.grid(axis='y',alpha=.22);ax.set_axisbelow(True)
     axes[0].set_ylabel('Completed output tokens / s')
     fig.legend(*axes[0].get_legend_handles_labels(),loc='upper center',ncol=2,frameon=False,bbox_to_anchor=(.5,.91))
-    fig.suptitle('OpenLLaMA-13B FP16 · 2 A30 + 2 T4 · FABRIC CERN / UTAH',y=.99,fontsize=13)
+    fig.suptitle(plan.get('figure_title','OpenLLaMA-13B FP16 · FABRIC'),y=.99,fontsize=13)
     fig.text(.5,.025,'Three 600 s windows per bar; mean ± sample SD; dots are individual runs. Scaled native-runtime adaptation; DistServe excluded.',ha='center',fontsize=9)
     fig.tight_layout(rect=(0,.08,1,.81))
     for extension in ['png','pdf','svg']:fig.savefig(output/('figure6-13b.'+extension),dpi=220,bbox_inches='tight')
