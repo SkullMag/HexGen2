@@ -28,6 +28,6 @@ jobs:
       - name: Verify source and shell syntax
         run: |
           python scripts/verify_upstream.py
-          bash -n scripts/fabric/setup.sh scripts/fabric/run_node.sh scripts/fabric/network.sh
+          bash -n scripts/fabric/*.sh
       - name: Validate real multi-process transfer and failure capture
         run: python -m unittest discover -s tests -v

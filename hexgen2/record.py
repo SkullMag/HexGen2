@@ -20,7 +20,7 @@ import traceback
 import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_KEYS = {"CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+ENV_KEYS = {"CUDA_MODULE_LOADING", "PYTORCH_CUDA_ALLOC_CONF", "GLOO_SOCKET_IFNAME", "TOKENIZERS_PARALLELISM", "CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
             "OPENBLAS_NUM_THREADS", "MPLCONFIGDIR",
             "PYTHONHASHSEED", "CUBLAS_WORKSPACE_CONFIG", "TORCH_DISTRIBUTED_DEBUG",
             "MASTER_ADDR", "MASTER_PORT", "WORLD_SIZE", "RANK", "LOCAL_RANK"}
@@ -90,6 +90,7 @@ def capture_source(folder):
 
 def telemetry(path, stop, child, interval):
     with path.open("w") as stream:
+        sample_number = 0
         while not stop.is_set():
             started = time.monotonic()
             row = {"utc_ns": time.time_ns(), "monotonic_ns": time.monotonic_ns(),
@@ -108,6 +109,9 @@ def telemetry(path, stop, child, interval):
                         pass
             except (psutil.Error, OSError) as error:
                 row["process_collection_error"] = {"type": type(error).__name__, "message": str(error)}
+            if sample_number % 10 == 0:
+                row["tcp_sockets"] = command_result(["ss", "-tin"], timeout=5)
+            sample_number += 1
             row["gpu"] = command_result(["nvidia-smi", "--query-gpu=uuid,pci.bus_id,name,pstate,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu,clocks.sm,clocks.mem", "--format=csv,noheader,nounits"], timeout=5)
             stream.write(json.dumps(row) + "\n")
             stream.flush()
@@ -135,7 +139,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--node", required=True)
-    parser.add_argument("--classification", choices=["scheduler-modeled", "cpu-reference", "native-pilot"], required=True)
+    parser.add_argument("--classification", choices=["scheduler-modeled", "cpu-reference", "native-pilot", "native-comparison"], required=True)
     parser.add_argument("--placement", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path)
     parser.add_argument("--trace", type=Path)
@@ -186,13 +190,14 @@ def main():
         diagnostics = {
             "pip-freeze": [sys.executable, "-m", "pip", "freeze", "--all"],
             "pip-check": [sys.executable, "-m", "pip", "check"],
-            "gpu": ["nvidia-smi", "-q"], "gpu-topology": ["nvidia-smi", "topo", "-m"],
+            "gpu": ["nvidia-smi", "-q"], "kernel-messages": ["sudo", "-n", "dmesg", "--time-format", "iso"], "gpu-topology": ["nvidia-smi", "topo", "-m"],
             "cpu": ["lscpu", "-J"], "pci": ["lspci", "-nn"],
+            "tcp-settings": ["sysctl", "net.core.rmem_max", "net.core.wmem_max", "net.ipv4.tcp_rmem", "net.ipv4.tcp_wmem", "net.ipv4.tcp_congestion_control", "net.ipv4.tcp_mtu_probing", "net.ipv4.tcp_window_scaling", "net.ipv4.tcp_timestamps", "net.ipv4.tcp_sack"],
             "links": ["ip", "-j", "-s", "link"], "addresses": ["ip", "-j", "addr"],
             "routes": ["ip", "-j", "route"], "clock": ["timedatectl", "show"],
             "clock-offset": ["chronyc", "tracking"], "kernel": ["uname", "-a"],
             "disk": ["df", "-h"], "limits": ["sh", "-c", "ulimit -a"],
-            "torch": [sys.executable, "-c", "import torch,json;print(json.dumps({'torch':torch.__version__,'cuda':torch.version.cuda,'nccl':torch.cuda.nccl.version() if torch.cuda.is_available() else None,'cuda_available':torch.cuda.is_available()}))"],
+            "torch": [sys.executable, "-c", "import torch,json;from hexgen2.nccl_runtime import runtime_version;print(json.dumps({'torch':torch.__version__,'cuda':torch.version.cuda,'nccl':torch.cuda.nccl.version() if torch.cuda.is_available() else None,'nccl_field_scope':'Torch build headers','nccl_runtime':runtime_version() if torch.cuda.is_available() else None,'cuda_available':torch.cuda.is_available()}))"],
         }
         for name, cmd in diagnostics.items():
             write(folder / f"environment/{name}.json", command_result(cmd))
@@ -246,6 +251,8 @@ def main():
                 result = 2
         if child and not samples and result == 0:
             manifest["status"], result = "capture_incomplete", 2
+        for name, cmd in {"gpu-final": ["nvidia-smi", "-q"], "links-final": ["ip", "-j", "-s", "link"], "clock-offset-final": ["chronyc", "tracking"], "kernel-messages-final": ["sudo", "-n", "dmesg", "--time-format", "iso"]}.items():
+            write(folder / f"environment/{name}.json", command_result(cmd))
         manifest.update(exit_code=result, end_utc=utc(), end_monotonic_ns=time.monotonic_ns(),
                         child_returncode=child.returncode if child else None)
         write(folder / "manifest.json", manifest)
