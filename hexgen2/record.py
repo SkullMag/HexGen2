@@ -186,7 +186,7 @@ def main():
         diagnostics = {
             "pip-freeze": [sys.executable, "-m", "pip", "freeze", "--all"],
             "pip-check": [sys.executable, "-m", "pip", "check"],
-            "gpu": ["nvidia-smi", "-q"], "gpu-topology": ["nvidia-smi", "topo", "-m"],
+            "gpu": ["nvidia-smi", "-q"], "kernel-messages": ["sudo", "-n", "dmesg", "--time-format", "iso"], "gpu-topology": ["nvidia-smi", "topo", "-m"],
             "cpu": ["lscpu", "-J"], "pci": ["lspci", "-nn"],
             "links": ["ip", "-j", "-s", "link"], "addresses": ["ip", "-j", "addr"],
             "routes": ["ip", "-j", "route"], "clock": ["timedatectl", "show"],
@@ -246,6 +246,8 @@ def main():
                 result = 2
         if child and not samples and result == 0:
             manifest["status"], result = "capture_incomplete", 2
+        for name, cmd in {"gpu-final": ["nvidia-smi", "-q"], "links-final": ["ip", "-j", "-s", "link"], "clock-offset-final": ["chronyc", "tracking"], "kernel-messages-final": ["sudo", "-n", "dmesg", "--time-format", "iso"]}.items():
+            write(folder / f"environment/{name}.json", command_result(cmd))
         manifest.update(exit_code=result, end_utc=utc(), end_monotonic_ns=time.monotonic_ns(),
                         child_returncode=child.returncode if child else None)
         write(folder / "manifest.json", manifest)
