@@ -21,7 +21,8 @@ DistServe is excluded.
   stage's initialized FP16 KV prefix to its corresponding decode stage.
 - Each method imports native attention/MLP/block code from its own pinned artifact.
   A common bounded HTTP/queue/microbatch adapter replaces the unavailable complete
-  coordinator. Unfused RMSNorm/dense/MLP settings are shared. A common alias resolves the renamed, unused FSDP training import under PyTorch 2.5. Ampere uses
+  coordinator. Unfused RMSNorm/dense/MLP settings are shared. A common import
+  alias resolves the renamed, unused FSDP training dependency under PyTorch 2.5. A common alias resolves the renamed, unused FSDP training import under PyTorch 2.5. Ampere uses
   FlashAttention 2; Turing uses the recorded Turing extension. This adapter does
   not implement the paper's paged attention or arbitrary continuous admission.
 - Azure Conversation trace commit
