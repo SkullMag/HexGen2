@@ -79,7 +79,11 @@ async def execute(args):
             failures=sum(not r.get('success',False) for r in results),
             completed_output_tokens=sum(r['requested_output_tokens'] for r in results if r.get('success')),
             measurement_output_tokens=sum(r['requested_output_tokens'] for r in results if r.get('success') and r['within_measurement_window']))
-        summary['throughput_tokens_per_second']=summary['measurement_output_tokens']/args.duration
+        summary['measurement_window_applicable']=args.mode!='finite'
+        summary['throughput_tokens_per_second']=summary['measurement_output_tokens']/args.duration if args.mode!='finite' else None
+        if args.mode=='finite':
+            summary['measurement_output_tokens']=None
+            summary['throughput_definition']='Finite diagnostic run; only full-drain throughput applies'
         summary['full_drain_tokens_per_second']=summary['completed_output_tokens']/summary['wall_seconds']
         summary['capture_complete']=len(offered)==len(results)
         (args.output/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')

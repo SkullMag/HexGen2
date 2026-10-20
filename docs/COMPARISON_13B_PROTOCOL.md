@@ -22,9 +22,20 @@ DistServe is excluded.
 - Each method imports native attention/MLP/block code from its own pinned artifact.
   A common bounded HTTP/queue/microbatch adapter replaces the unavailable complete
   coordinator. Unfused RMSNorm/dense/MLP settings are shared. A common import
-  alias resolves the renamed, unused FSDP training dependency under PyTorch 2.5. A common alias resolves the renamed, unused FSDP training import under PyTorch 2.5. Ampere uses
+  alias resolves the renamed, unused FSDP training dependency under PyTorch 2.5. Ampere uses
   FlashAttention 2; Turing uses the recorded Turing extension. This adapter does
   not implement the paper's paged attention or arbitrary continuous admission.
+  Model computation is serial in a dedicated service loop, independent of the
+  HTTP response threads; every reply is explicitly flushed. The released NATS
+  async handler is not used. Earlier HexGen curves from the blocking NATS stack
+  are excluded. A queued T4 delivery diagnostic must pass before measurement;
+  retain generation-end, completion-ready, reply-start and reply-flush times.
+  Device durations use a single host's monotonic clock. Cross-host callback
+  latency is not inferred by subtracting unrelated monotonic timestamps.
+  Cache transport has two credits: one active decode plus one prefetched prefix.
+  Compute-stream synchronization allows reception during decoding without waiting
+  for a subsequent unfulfilled receive. Qualify concurrency, shutdown, numerical
+  correctness and memory separately before accepting this configuration.
 - Azure Conversation trace commit
   `790921015d50dd6aae7f7e47f39ba0e235ad6b08`, CSV SHA-256
   `2f1e5b666d4e3055fdbba98598ce2ec307767b9064e03e2fa46676dbcc7d0bf8`.

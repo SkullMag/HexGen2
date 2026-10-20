@@ -33,7 +33,9 @@ class Service:
         self.peer=self.rank+2 if self.group==0 else self.rank-2
         self.output=args.output;self.journal=Journal(args.output/f'rank-{self.rank}-events.jsonl')
         self.jobs=queue.Queue();self.pending={};self.pending_lock=threading.Lock();self.stash=collections.deque()
-        self.send_credit=threading.Semaphore(1);self.outbox=queue.Queue(maxsize=1);self.inbox=queue.Queue(maxsize=1);self.credit=threading.Semaphore(1)
+        # One active decode plus one prefetched prefix. Synchronize only the
+        # compute stream: a device-wide sync would wait for the next blocked recv.
+        self.send_credit=threading.Semaphore(2);self.outbox=queue.Queue(maxsize=1);self.inbox=queue.Queue(maxsize=1);self.credit=threading.Semaphore(2)
         self.feedback=queue.Queue();self.threads=[];self.errors=[];self.ready=False;self.stopping=False
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
@@ -92,6 +94,7 @@ class Service:
     def finish(self,results):
         with self.pending_lock:
             for result in results:
+                result['completion_ready']=stamp()
                 job=self.pending[result['id']];job['result']=result;job['done'].set()
         for result in results:self.journal.write('request_complete',**result)
 
@@ -116,11 +119,11 @@ class Service:
         if tensors is None and self.args.phase=='prefill':self.send_credit.acquire()
         started=stamp()
         def callback(token):
-            torch.cuda.synchronize();token_stamps.append(stamp())
+            torch.cuda.current_stream().synchronize();token_stamps.append(stamp())
         if tensors is None:
             inputs=torch.tensor(meta['input_ids'],device='cuda',dtype=torch.long)
             first,state,logits=self.model.prefill(inputs,count,self.pair,self.head_rank,self.tail_rank)
-            torch.cuda.synchronize();prefill_end=stamp()
+            torch.cuda.current_stream().synchronize();prefill_end=stamp()
             if self.args.phase=='prefill':
                 live={str(i):v[:,:length].contiguous() for i,v in state.key_value_memory_dict.items()}
                 live['first']=first.clone();event=torch.cuda.Event();event.record()
@@ -134,7 +137,7 @@ class Service:
             first,state=self.model.restore(tensors,length,count);del tensors
             prefill_end=None
         tokens=self.model.decode(first,state,count,self.pair,self.head_rank,self.tail_rank,callback)
-        torch.cuda.synchronize();ended=stamp()
+        torch.cuda.current_stream().synchronize();ended=stamp()
         details={'rank':self.rank,'group':self.group,'batch':batch,'started':started,'ended':ended,
             'duration_ms':(ended['monotonic_ns']-started['monotonic_ns'])/1e6,'token_observations':token_stamps,
             'peak_allocated_bytes':torch.cuda.max_memory_allocated(),'attention_calls':{k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()}}
@@ -187,7 +190,7 @@ class Service:
             protocol_version='HTTP/1.1'
             def log_message(self,*args):pass
             def reply(self,status,data):
-                raw=json.dumps(data,allow_nan=False).encode();self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw)
+                raw=json.dumps(data,allow_nan=False).encode();self.send_response(status);self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(raw)));self.end_headers();self.wfile.write(raw);self.wfile.flush()
             def do_GET(self):
                 if self.path=='/health':self.reply(200,{'ready':service.ready,'rank':service.rank,'phase':service.args.phase,'errors':service.errors,'pending':len(service.pending)})
                 else:self.reply(404,{'error':'unknown path'})
@@ -211,7 +214,11 @@ class Service:
                     service.jobs.put(job)
                     if not job['done'].wait(service.args.request_timeout):self.reply(504,{'id':data['id'],'status':'timeout'});return
                     result=dict(job['result'],received=job['received'],response_started=stamp())
-                    self.reply(200,result);service.journal.write('response_sent',id=data['id'])
+                    self.reply(200,result);sent=stamp()
+                    timing={'completion_ready_to_response_sent_ms':(sent['monotonic_ns']-result['completion_ready']['monotonic_ns'])/1e6}
+                    if result['native']['rank']==service.rank:
+                        timing['generation_end_to_response_sent_ms']=(sent['monotonic_ns']-result['native']['ended']['monotonic_ns'])/1e6
+                    service.journal.write('response_sent',id=data['id'],response_started=result['response_started'],response_flushed=sent,**timing)
                 except BaseException as e:
                     service.journal.write('http_failure',error=repr(e),traceback=traceback.format_exc())
                     try:self.reply(400,{'error':repr(e)})
