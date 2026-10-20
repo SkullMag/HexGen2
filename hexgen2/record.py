@@ -20,7 +20,7 @@ import traceback
 import psutil
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_KEYS = {"CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+ENV_KEYS = {"GLOO_SOCKET_IFNAME", "TOKENIZERS_PARALLELISM", "CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
             "OPENBLAS_NUM_THREADS", "MPLCONFIGDIR",
             "PYTHONHASHSEED", "CUBLAS_WORKSPACE_CONFIG", "TORCH_DISTRIBUTED_DEBUG",
             "MASTER_ADDR", "MASTER_PORT", "WORLD_SIZE", "RANK", "LOCAL_RANK"}
@@ -135,7 +135,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--node", required=True)
-    parser.add_argument("--classification", choices=["scheduler-modeled", "cpu-reference", "native-pilot"], required=True)
+    parser.add_argument("--classification", choices=["scheduler-modeled", "cpu-reference", "native-pilot", "native-comparison"], required=True)
     parser.add_argument("--placement", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path)
     parser.add_argument("--trace", type=Path)

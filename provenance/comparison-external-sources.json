@@ -1,0 +1,28 @@
+{
+  "hexgen_baseline": {
+    "repository": "https://github.com/SkullMag/HexGen",
+    "commit": "8e6fca71b2a1228c416cbcd4274b70f8768a77b8",
+    "used_paths": [
+      "hexgen/",
+      "LICENSE"
+    ],
+    "export_method": "git archive"
+  },
+  "turing_attention": {
+    "repository": "https://github.com/ssiu/flash-attention-turing.git",
+    "commit": "9ef98fcb506bb1e2fe3cece50935e2935bf6b124",
+    "interface_source": "flash_attention_interface.py",
+    "interface_copy": "hexgen2/turing_interface.py",
+    "wheel": "flash_attn_turing-0.0.0-cp310-cp310-linux_x86_64.whl",
+    "wheel_sha256": "627075b22393d1eec056cbce41fa14b70041fd3bcab1afd5c51df5c075744cf6",
+    "build_environment": "CPython 3.10; torch 2.5.1+cu124; CUDA toolkit 12.4; TORCH_CUDA_ARCH_LIST=7.5;8.0",
+    "build_command": "pip wheel source/flash-attention-turing --no-build-isolation --no-deps -w wheels",
+    "interface_sha256": "7e89eba46ad87b1495c70605f453a57ecb981956fa9e3d803439283199610418"
+  },
+  "ampere_attention": {
+    "repository": "https://github.com/Dao-AILab/flash-attention",
+    "version": "2.7.4.post1",
+    "wheel": "flash_attn-2.7.4.post1-cp310-cp310-linux_x86_64.whl",
+    "wheel_sha256": "b267f80a08e516292cdd748056a2178a45b8abedf7fca123292eb17c21c8c87c"
+  }
+}

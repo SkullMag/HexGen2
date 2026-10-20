@@ -18,8 +18,8 @@ MAX_HEADER = 1024 * 1024
 MAX_PAYLOAD = 8 * 1024**3
 
 
-def wire_device():
-    return torch.device("cuda", torch.cuda.current_device()) if dist.get_backend() == "nccl" else torch.device("cpu")
+def wire_device(group=None):
+    return torch.device("cuda", torch.cuda.current_device()) if dist.get_backend(group) == "nccl" else torch.device("cpu")
 
 
 def validate_header(header):
@@ -41,7 +41,7 @@ def validate_header(header):
     return size
 
 
-def send_packet(tensors, metadata, dst):
+def send_packet(tensors, metadata, dst, group=None):
     header = {"version": 1, "metadata": metadata, "tensors": [
         {"name": name, "shape": list(t.shape), "dtype": str(t.dtype)}
         for name, t in tensors.items()
@@ -50,32 +50,32 @@ def send_packet(tensors, metadata, dst):
     encoded = json.dumps(header, allow_nan=False).encode("utf-8")
     if not 0 < len(encoded) <= MAX_HEADER:
         raise ValueError("Tensor metadata exceeds limit")
-    device = wire_device()
-    dist.send(torch.tensor([len(encoded)], dtype=torch.int64, device=device), dst=dst)
-    dist.send(torch.tensor(list(encoded), dtype=torch.uint8, device=device), dst=dst)
+    device = wire_device(group)
+    dist.send(torch.tensor([len(encoded)], dtype=torch.int64, device=device), dst=dst, group=group)
+    dist.send(torch.tensor(list(encoded), dtype=torch.uint8, device=device), dst=dst, group=group)
     for tensor in tensors.values():
         tensor = tensor.detach().to(device).contiguous()
         if tensor.numel():
-            dist.send(tensor, dst=dst)
+            dist.send(tensor, dst=dst, group=group)
     return payload_bytes
 
 
-def recv_packet(src):
-    device = wire_device()
+def recv_packet(src, group=None):
+    device = wire_device(group)
     length = torch.empty(1, dtype=torch.int64, device=device)
-    dist.recv(length, src=src)
+    dist.recv(length, src=src, group=group)
     size = length.item()
     if not 0 < size <= MAX_HEADER:
         raise ValueError("Invalid tensor header length")
     encoded = torch.empty(size, dtype=torch.uint8, device=device)
-    dist.recv(encoded, src=src)
+    dist.recv(encoded, src=src, group=group)
     header = json.loads(bytes(encoded.cpu().tolist()).decode("utf-8"))
     validate_header(header)
     tensors = {}
     for item in header["tensors"]:
         tensor = torch.empty(item["shape"], dtype=DTYPES[item["dtype"]], device=device)
         if tensor.numel():
-            dist.recv(tensor, src=src)
+            dist.recv(tensor, src=src, group=group)
         tensors[item["name"]] = tensor
     return tensors, header["metadata"]
 
