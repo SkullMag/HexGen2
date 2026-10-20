@@ -38,9 +38,12 @@ DistServe is excluded.
   correctness and memory separately before accepting this configuration.
   A CPU Gloo readiness/acknowledgment exchange precedes each NCCL cache packet,
   so an idle receiver does not leave a GPU kernel waiting for a future request.
-  Both methods use `CUDA_MODULE_LOADING=EAGER`: a queued qualification exposed
-  FlashAttention module loading blocked behind an idle NCCL receive. Native
-  thread stacks, the aborted diagnostic and its replacement runs are retained.
+  Both methods explicitly use `CUDA_MODULE_LOADING=LAZY`. A queued qualification
+  exposed FlashAttention module loading blocked behind an idle NCCL receive;
+  the CPU readiness exchange removes that idle GPU receive. An eager-loading
+  diagnostic resolved the stall but exceeded T4 memory at maximum context, so
+  it is excluded from measurement. Native stacks and both failed diagnostics
+  are retained. Maximum-context warmups precede measured windows.
   See NVIDIA's [lazy-loading guidance](https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/lazy-loading.html).
 - Azure Conversation trace commit
   `790921015d50dd6aae7f7e47f39ba0e235ad6b08`, CSV SHA-256

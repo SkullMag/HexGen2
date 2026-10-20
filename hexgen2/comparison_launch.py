@@ -22,7 +22,7 @@ def main():
     try:
         for rank,device,bind in ranks:
             env=os.environ.copy();env.update(RANK=str(rank),LOCAL_RANK=str(device),WORLD_SIZE='4',MASTER_ADDR=a.master,MASTER_PORT=str(a.master_port),
-                CUDA_MODULE_LOADING='EAGER',GLOO_SOCKET_IFNAME=a.interface,NCCL_SOCKET_IFNAME=a.interface,NCCL_IB_DISABLE='1',NCCL_DEBUG='INFO',NCCL_DEBUG_FILE=str(output/f'rank-{rank}-nccl-%p.log'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
+                CUDA_MODULE_LOADING='LAZY',GLOO_SOCKET_IFNAME=a.interface,NCCL_SOCKET_IFNAME=a.interface,NCCL_IB_DISABLE='1',NCCL_DEBUG='INFO',NCCL_DEBUG_FILE=str(output/f'rank-{rank}-nccl-%p.log'),OMP_NUM_THREADS='1',MKL_NUM_THREADS='1',OPENBLAS_NUM_THREADS='1',TOKENIZERS_PARALLELISM='false')
             phase='all' if a.method=='hexgen' else ('prefill' if rank//2==a.prefill_group else 'decode')
             command=[sys.executable,'-u','-m','hexgen2.comparison_worker','--method',a.method,'--phase',phase,'--bind',bind,'--port',str(a.port),
                 '--model-dir',a.model_dir,'--baseline-root',a.baseline_root,'--max-batch',str(a.max_batch),'--output',str(output)]
@@ -30,7 +30,7 @@ def main():
             if a.task=='linkprobe':command=[sys.executable,'-u','-m','hexgen2.comparison_linkprobe','--output',str(output)]
             out=(output/f'rank-{rank}-stdout.log').open('wb');err=(output/f'rank-{rank}-stderr.log').open('wb');logs.extend([out,err])
             children.append(subprocess.Popen(command,env=env,stdout=out,stderr=err))
-        (output/'launcher.json').write_text(json.dumps({'arguments':vars(a)|{'output':str(output)},'worker_environment':{'CUDA_MODULE_LOADING':'EAGER'},'ranks':[{'rank':r,'local_device':d,'bind':b,'pid':c.pid} for (r,d,b),c in zip(ranks,children)]},indent=2)+'\n')
+        (output/'launcher.json').write_text(json.dumps({'arguments':vars(a)|{'output':str(output)},'worker_environment':{'CUDA_MODULE_LOADING':'LAZY'},'ranks':[{'rank':r,'local_device':d,'bind':b,'pid':c.pid} for (r,d,b),c in zip(ranks,children)]},indent=2)+'\n')
         while not all(c.poll() is not None for c in children):
             if stopping or any(c.poll() not in [None,0] for c in children):stop();break
             time.sleep(.2)
