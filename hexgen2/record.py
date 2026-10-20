@@ -90,6 +90,7 @@ def capture_source(folder):
 
 def telemetry(path, stop, child, interval):
     with path.open("w") as stream:
+        sample_number = 0
         while not stop.is_set():
             started = time.monotonic()
             row = {"utc_ns": time.time_ns(), "monotonic_ns": time.monotonic_ns(),
@@ -108,6 +109,9 @@ def telemetry(path, stop, child, interval):
                         pass
             except (psutil.Error, OSError) as error:
                 row["process_collection_error"] = {"type": type(error).__name__, "message": str(error)}
+            if sample_number % 10 == 0:
+                row["tcp_sockets"] = command_result(["ss", "-tin"], timeout=5)
+            sample_number += 1
             row["gpu"] = command_result(["nvidia-smi", "--query-gpu=uuid,pci.bus_id,name,pstate,utilization.gpu,utilization.memory,memory.used,memory.total,power.draw,temperature.gpu,clocks.sm,clocks.mem", "--format=csv,noheader,nounits"], timeout=5)
             stream.write(json.dumps(row) + "\n")
             stream.flush()
@@ -188,6 +192,7 @@ def main():
             "pip-check": [sys.executable, "-m", "pip", "check"],
             "gpu": ["nvidia-smi", "-q"], "kernel-messages": ["sudo", "-n", "dmesg", "--time-format", "iso"], "gpu-topology": ["nvidia-smi", "topo", "-m"],
             "cpu": ["lscpu", "-J"], "pci": ["lspci", "-nn"],
+            "tcp-settings": ["sysctl", "net.core.rmem_max", "net.core.wmem_max", "net.ipv4.tcp_rmem", "net.ipv4.tcp_wmem", "net.ipv4.tcp_congestion_control", "net.ipv4.tcp_mtu_probing", "net.ipv4.tcp_window_scaling", "net.ipv4.tcp_timestamps", "net.ipv4.tcp_sack"],
             "links": ["ip", "-j", "-s", "link"], "addresses": ["ip", "-j", "addr"],
             "routes": ["ip", "-j", "route"], "clock": ["timedatectl", "show"],
             "clock-offset": ["chronyc", "tracking"], "kernel": ["uname", "-a"],
