@@ -15,6 +15,7 @@ from .transport import send_packet,recv_packet
 from . import fa_adapter
 from .record import digest
 from .comparison_fence import LaunchFence
+from .nccl_runtime import runtime_version,mapped_libraries
 
 
 def fingerprints(tensors):return {k:hashlib.sha256(t.detach().cpu().numpy().tobytes()).hexdigest() for k,t in tensors.items()}
@@ -30,6 +31,7 @@ class Service:
     def __init__(self,args,model,pair,control,cross,readiness,ordering):
         self.args,self.model,self.pair,self.control,self.cross=args,model,pair,control,cross
         self.rank=int(os.environ['RANK']);self.head=self.rank%2==0;self.group=self.rank//2
+        self.clock_domain={'hostname':os.uname().nodename,'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
         self.head_rank=self.group*2;self.tail_rank=self.head_rank+1
         self.peer=self.rank+2 if self.group==0 else self.rank-2
         self.readiness=readiness
@@ -42,8 +44,8 @@ class Service:
         self.feedback=queue.Queue();self.threads=[];self.errors=[];self.ready=False;self.stopping=False
         if args.audit:
             model.audit_directory=args.output/f'audit-rank-{self.rank}';model.audit_directory.mkdir(exist_ok=False)
-        libraries=sorted({line.split()[-1] for line in Path('/proc/self/maps').read_text().splitlines() if 'libnccl.so' in line})
-        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend(),'nccl_runtime':list(torch.cuda.nccl.version()),'nccl_libraries':[{'path':p,'sha256':digest(p)} for p in libraries],'launch_order_implicit':os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT'),'launch_race_fatal':os.environ.get('NCCL_LAUNCH_RACE_FATAL'),'cache_staging':'gpu'},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
+        libraries=mapped_libraries()
+        self.journal.write('model_loaded',rank=self.rank,source=model.source,gpu={'name':torch.cuda.get_device_name(),'capability':torch.cuda.get_device_capability(),'module_loading':os.environ.get('CUDA_MODULE_LOADING'),'allocator':torch.cuda.get_allocator_backend(),'nccl_runtime':list(runtime_version()),'nccl_torch_build':list(torch.cuda.nccl.version()),'nccl_libraries':[{'path':p,'sha256':digest(p)} for p in libraries],'launch_order_implicit':os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT'),'launch_race_fatal':os.environ.get('NCCL_LAUNCH_RACE_FATAL'),'cache_staging':'gpu'},arguments={k:str(v) if isinstance(v,Path) else v for k,v in vars(args).items()})
 
     def park_compute(self,epoch):
         started=stamp();torch.cuda.current_stream().synchronize()
@@ -205,6 +207,7 @@ class Service:
         tokens=self.model.decode(first,state,count,self.pair,self.head_rank,self.tail_rank,callback)
         torch.cuda.current_stream().synchronize();ended=stamp()
         details={'rank':self.rank,'group':self.group,'batch':batch,'started':started,'ended':ended,
+            'clock_domain':self.clock_domain,
             'duration_ms':(ended['monotonic_ns']-started['monotonic_ns'])/1e6,'token_observations':token_stamps,
             'peak_allocated_bytes':torch.cuda.max_memory_allocated(),'attention_calls':{k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()}}
         self.journal.write('generation_complete',ids=ids,token_ids=tokens,**details)
@@ -280,7 +283,7 @@ class Service:
                     service.journal.write('request_received',id=data['id'],input_ids=values,max_new_tokens=count,received=job['received'])
                     service.jobs.put(job)
                     if not job['done'].wait(service.args.request_timeout):self.reply(504,{'id':data['id'],'status':'timeout'});return
-                    result=dict(job['result'],received=job['received'],response_started=stamp())
+                    result=dict(job['result'],received=job['received'],response_started=stamp(),response_clock_domain=getattr(service,'clock_domain',None))
                     self.reply(200,result);sent=stamp()
                     timing={'completion_ready_to_response_sent_ms':(sent['monotonic_ns']-result['completion_ready']['monotonic_ns'])/1e6}
                     if result['native']['rank']==service.rank:
@@ -302,7 +305,7 @@ def main():
     # JSON event arguments remain portable string values.
     args.output=str(args.output)
     rank=int(os.environ['RANK']);device=int(os.environ['LOCAL_RANK']);torch.cuda.set_device(device);torch.set_num_threads(1)
-    if torch.cuda.nccl.version()<(2,26,0) or os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT')!='1':
+    if runtime_version()<(2,26,0) or os.environ.get('NCCL_LAUNCH_ORDER_IMPLICIT')!='1':
         raise RuntimeError('Ordered comparison requires NCCL >=2.26 and NCCL_LAUNCH_ORDER_IMPLICIT=1')
     torch.manual_seed(123);torch.cuda.manual_seed_all(123);torch.backends.cuda.matmul.allow_tf32=False;torch.backends.cudnn.allow_tf32=False
     dist.init_process_group('nccl',timeout=timedelta(seconds=1800))

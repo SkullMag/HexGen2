@@ -43,7 +43,9 @@ DistServe is excluded.
   correctness and memory separately before accepting this configuration.
   A CPU Gloo readiness/acknowledgment exchange precedes each NCCL cache packet,
   so an idle receiver does not leave a GPU kernel waiting for a future request.
-  KV payloads remain GPU-resident. The pinned dynamic NCCL runtime is 2.26.5
+  Application KV buffers remain CUDA tensors. NCCL may internally use host
+  staging for its socket/SHM paths; record the actual transport and do not claim
+  GPUDirect or all-PCIe transfer from this interface alone. The pinned dynamic NCCL runtime is 2.26.5
   with `NCCL_LAUNCH_ORDER_IMPLICIT=1` and `NCCL_LAUNCH_RACE_FATAL=1`. Record the
   actual loaded library path/hash and runtime version, independently of pip's
   installed Torch dependency metadata. A global CPU launch fence parks all

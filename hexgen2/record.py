@@ -197,7 +197,7 @@ def main():
             "routes": ["ip", "-j", "route"], "clock": ["timedatectl", "show"],
             "clock-offset": ["chronyc", "tracking"], "kernel": ["uname", "-a"],
             "disk": ["df", "-h"], "limits": ["sh", "-c", "ulimit -a"],
-            "torch": [sys.executable, "-c", "import torch,json;print(json.dumps({'torch':torch.__version__,'cuda':torch.version.cuda,'nccl':torch.cuda.nccl.version() if torch.cuda.is_available() else None,'cuda_available':torch.cuda.is_available()}))"],
+            "torch": [sys.executable, "-c", "import torch,json;from hexgen2.nccl_runtime import runtime_version;print(json.dumps({'torch':torch.__version__,'cuda':torch.version.cuda,'nccl':torch.cuda.nccl.version() if torch.cuda.is_available() else None,'nccl_field_scope':'Torch build headers','nccl_runtime':runtime_version() if torch.cuda.is_available() else None,'cuda_available':torch.cuda.is_available()}))"],
         }
         for name, cmd in diagnostics.items():
             write(folder / f"environment/{name}.json", command_result(cmd))

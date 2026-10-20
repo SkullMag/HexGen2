@@ -3,7 +3,7 @@
 Offline maintains a fixed backlog for a fixed window; online replays a frozen
 arrival trace. All offered requests, drain outcomes and server records are retained.
 """
-import argparse,asyncio,json,time
+import argparse,asyncio,json,time,socket
 from .record import digest
 from pathlib import Path
 import aiohttp
@@ -24,6 +24,7 @@ async def execute(args):
              'trace_sha256':digest(args.trace),'arrivals_sha256':digest(args.arrivals) if args.arrivals else None,
              'routing_sha256':digest(args.routing) if args.routing else None,
              'clock':'Client durations use only this process monotonic clock','client_ttft':None,
+             'clock_domain':{'hostname':socket.gethostname(),'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip() if Path('/proc/sys/kernel/random/boot_id').exists() else None},
              'throughput_definition':'Successful completed output tokens received within the fixed measurement window / window seconds; full drain reported separately'}
     (args.output/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
     async with aiohttp.ClientSession(timeout=timeout,connector=connector,trust_env=False) as session:
