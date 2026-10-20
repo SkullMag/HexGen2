@@ -3,7 +3,7 @@
 The serving adapter uses bounded, length-homogeneous microbatches. It does not
 claim paged attention, arbitrary continuous-batch admission or paper-scale search.
 """
-import argparse,collections,gc,json,os,queue,threading,time,traceback
+import argparse,collections,gc,hashlib,json,os,queue,threading,time,traceback
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
@@ -15,6 +15,8 @@ from .transport import send_packet,recv_packet
 from . import fa_adapter
 from .record import digest
 
+
+def fingerprints(tensors):return {k:hashlib.sha256(t.detach().cpu().numpy().tobytes()).hexdigest() for k,t in tensors.items()}
 
 def stamp():return {'utc_ns':time.time_ns(),'monotonic_ns':time.monotonic_ns()}
 
@@ -55,8 +57,9 @@ class Service:
                 if item is None:
                     send_packet({}, {'stop':True}, self.peer,group=self.cross);return
                 tensors,meta,event=item;stream.wait_event(event)
+                if self.args.audit:meta['sender_payload_sha256']=fingerprints(tensors)
                 started=stamp();size=send_packet(tensors,meta,self.peer,group=self.cross);stream.synchronize()
-                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started)
+                self.journal.write('kv_send_complete',rank=self.rank,ids=meta['ids'],payload_bytes=size,started=started,payload_sha256=meta.get('sender_payload_sha256'))
                 del tensors,item;self.send_credit.release();self.outbox.task_done()
 
     def receiver(self):
@@ -67,6 +70,10 @@ class Service:
                 started=stamp();tensors,meta=recv_packet(self.peer,group=self.cross);stream.synchronize()
                 if meta.get('stop'):
                     self.inbox.put(None);return
+                if self.args.audit:
+                    actual=fingerprints(tensors)
+                    if actual!=meta.get('sender_payload_sha256'):raise ValueError('KV transfer SHA256 mismatch')
+                    self.journal.write('kv_fingerprints_verified',rank=self.rank,ids=meta['ids'],payload_sha256=actual)
                 event=torch.cuda.Event();event.record(stream)
                 size=sum(t.numel()*t.element_size() for t in tensors.values())
                 meta['receiver']={'rank':self.rank,'started':started,'completed':stamp(),'payload_bytes':size}
