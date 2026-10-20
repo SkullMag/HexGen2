@@ -44,6 +44,9 @@ DistServe is excluded.
   diagnostic resolved the stall but exceeded T4 memory at maximum context, so
   it is excluded from measurement. Native stacks and both failed diagnostics
   are retained. Maximum-context warmups precede measured windows.
+  Prefill-only caches reserve prompt positions only; decode workers reserve the
+  required output positions after restoration. Received tensors record their
+  use on the compute stream before transport-stream storage can be reused.
   See NVIDIA's [lazy-loading guidance](https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/lazy-loading.html).
 - Azure Conversation trace commit
   `790921015d50dd6aae7f7e47f39ba0e235ad6b08`, CSV SHA-256

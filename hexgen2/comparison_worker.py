@@ -136,12 +136,12 @@ class Service:
             if len(token_stamps)%32==0:self.journal.write('decode_progress',rank=self.rank,ids=ids,tokens_observed=len(token_stamps))
         if tensors is None:
             inputs=torch.tensor(meta['input_ids'],device='cuda',dtype=torch.long)
-            first,state,logits=self.model.prefill(inputs,count,self.pair,self.head_rank,self.tail_rank)
+            first,state,logits=self.model.prefill(inputs,count,self.pair,self.head_rank,self.tail_rank,prefill_only=self.args.phase=='prefill')
             torch.cuda.current_stream().synchronize();prefill_end=stamp()
             if self.args.phase=='prefill':
                 live={str(i):v[:,:length].contiguous() for i,v in state.key_value_memory_dict.items()}
                 live['first']=first.clone();event=torch.cuda.Event();event.record()
-                transferred=dict(meta);transferred['prefill']={'rank':self.rank,'started':started,'ended':prefill_end,'duration_ms':(prefill_end['monotonic_ns']-started['monotonic_ns'])/1e6,'transfer_credit_wait_ms':(started['monotonic_ns']-queued['monotonic_ns'])/1e6}
+                transferred=dict(meta);transferred['prefill']={'rank':self.rank,'started':started,'ended':prefill_end,'duration_ms':(prefill_end['monotonic_ns']-started['monotonic_ns'])/1e6,'transfer_credit_wait_ms':(started['monotonic_ns']-queued['monotonic_ns'])/1e6,'cache_capacity_tokens':state.max_sequence_len,'cache_storage_bytes':sum(v.untyped_storage().nbytes() for v in state.key_value_memory_dict.values())}
                 del state,inputs,logits
                 self.outbox.put((live,transferred,event))
                 self.journal.write('prefill_complete',ids=ids,batch=batch,input_tokens=length,output_tokens=count,peak_allocated_bytes=torch.cuda.max_memory_allocated(),attention_calls={k:v-calls.get(k,0) for k,v in fa_adapter.CALLS.items()},**transferred['prefill'])

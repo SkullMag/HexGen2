@@ -103,8 +103,10 @@ class NativeStage(nn.Module):
         return token,logits
 
     @torch.inference_mode()
-    def prefill(self,ids,count,pair,head_rank,tail_rank):
-        state=State(ids.shape[1]+count,ids.shape[0])
+    def prefill(self,ids,count,pair,head_rank,tail_rank,prefill_only=False):
+        # A disaggregated prefill worker never writes decode positions. Keeping
+        # its live-prefix view must not retain unused output-capacity storage.
+        state=State(ids.shape[1]+(0 if prefill_only else count),ids.shape[0])
         token,logits=self.step(ids,state,pair,head_rank,tail_rank)
         state.sequence_len_offset=ids.shape[1]
         return token,state,logits
@@ -121,6 +123,9 @@ class NativeStage(nn.Module):
         return torch.tensor(tokens,dtype=torch.long).T.tolist()
 
     def restore(self,tensors,prompt_length,count):
+        # Received storage belongs to the transport CUDA stream. Its copies and
+        # first-token reads on the compute stream must finish before reuse.
+        for tensor in tensors.values():tensor.record_stream(torch.cuda.current_stream())
         first=tensors.pop('first');state=State(prompt_length+count,first.numel(),sequence_len_offset=prompt_length)
         expected=set(map(str,range(self.start,self.stop)))
         if set(tensors)!=expected:raise ValueError('Transferred cache layer ownership mismatch')
